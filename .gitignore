@@ -1,0 +1,11 @@
+# Temporary bitmaps and swatch caches
+*.bmp
+*.png
+skin_sample.json
+*.log
+
+# Lightroom & OS temporary files
+.DS_Store
+Thumbs.db
+*.lrprev
+*.lrcat.lock
