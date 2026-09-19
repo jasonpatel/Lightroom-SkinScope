@@ -11,6 +11,10 @@ return {
             title = "SkinScope: Vectorscope Skin Tone Assistant...",
             file = "SkinScopePlugin.lua",
         },
+        {
+            title = "SkinScope: Batch Align Selected to I-Line...",
+            file = "SkinScopeBatch.lua",
+        },
     },
 
     LrExportMenuItems = {
@@ -24,6 +28,10 @@ return {
         {
             title = "SkinScope: Vectorscope Skin Tone Assistant...",
             file = "SkinScopePlugin.lua",
+        },
+        {
+            title = "SkinScope: Batch Align Selected to I-Line...",
+            file = "SkinScopeBatch.lua",
         },
     },
 
