@@ -397,57 +397,13 @@ function SkinScopeDialog.show(activeSettings)
                     propertyTable.profile_status_str = string.format("%s (Creative LUT)", profileName:sub(1, 18))
                     propertyTable.profile_status_color = LrColor(0.95, 0.68, 0.10)
                 end
-                local photoPath = nil
-                LrTasks.pcall(function() photoPath = photo:getRawMetadata('path') end)
-                if photoPath and photoPath ~= "" then
-                    local sampleJson = LrPathUtils.child(_PLUGIN.path, "skin_sample.json")
-                    local pyScript = LrPathUtils.child(_PLUGIN.path, "sample_photo.py")
-                    local cmd = string.format('python "%s" "%s" "%s"', pyScript, photoPath, sampleJson)
-                    LrTasks.pcall(function()
-                        LrTasks.execute(cmd)
-                        local f = io.open(sampleJson, "r")
-                        if f then
-                            local content = f:read("*all")
-                            f:close()
-                            if content and content:find('"success":%s*true') then
-                                local r = tonumber(content:match('"r":%s*([%d%.]+)'))
-                                local g = tonumber(content:match('"g":%s*([%d%.]+)'))
-                                local b = tonumber(content:match('"b":%s*([%d%.]+)'))
-                                local angle = tonumber(content:match('"angle":%s*([%d%.]+)'))
-                                local sat = tonumber(content:match('"sat":%s*([%d%.]+)'))
-                                local luma = tonumber(content:match('"luma":%s*([%d%.]+)'))
-                                if r and g and b then
-                                    propertyTable.sampled_skin = { r = r, g = g, b = b, angle = angle, sat = sat, luma = luma }
-                                end
-
-                                local face_str = content:match('"face":%s*({[^}]+})')
-                                if face_str then
-                                    local fr = tonumber(face_str:match('"r":%s*([%d%.]+)'))
-                                    local fg = tonumber(face_str:match('"g":%s*([%d%.]+)'))
-                                    local fb = tonumber(face_str:match('"b":%s*([%d%.]+)'))
-                                    local fa = tonumber(face_str:match('"angle":%s*([%d%.]+)'))
-                                    local fs = tonumber(face_str:match('"sat":%s*([%d%.]+)'))
-                                    local fl = tonumber(face_str:match('"luma":%s*([%d%.]+)'))
-                                    if fr and fg and fb then
-                                        propertyTable.face_sample = { r = fr, g = fg, b = fb, angle = fa, sat = fs, luma = fl }
-                                    end
-                                end
-
-                                local body_str = content:match('"body":%s*({[^}]+})')
-                                if body_str then
-                                    local br = tonumber(body_str:match('"r":%s*([%d%.]+)'))
-                                    local bg = tonumber(body_str:match('"g":%s*([%d%.]+)'))
-                                    local bb = tonumber(body_str:match('"b":%s*([%d%.]+)'))
-                                    local ba = tonumber(body_str:match('"angle":%s*([%d%.]+)'))
-                                    local bs = tonumber(body_str:match('"sat":%s*([%d%.]+)'))
-                                    local bl = tonumber(body_str:match('"luma":%s*([%d%.]+)'))
-                                    if br and bg and bb then
-                                        propertyTable.body_sample = { r = br, g = bg, b = bb, angle = ba, sat = bs, luma = bl }
-                                    end
-                                end
-                            end
-                        end
-                    end)
+                local samplerPath = LrPathUtils.child(_PLUGIN.path, 'SkinSampler.lua')
+                local SkinSampler = dofile(samplerPath)
+                local samples = SkinSampler.samplePhoto(photo)
+                if samples then
+                    propertyTable.sampled_skin = samples.sampled_skin
+                    propertyTable.face_sample = samples.face_sample
+                    propertyTable.body_sample = samples.body_sample
                 end
 
                 updateDiagnostics()

@@ -1,10 +1,14 @@
 #!/usr/bin/env python
 # sample_photo.py - Real pixel skin tone sampler for SkinScope
 import os, sys, json, math
-from PIL import Image
 
 def sample_photo(photo_path, out_json):
     try:
+        try:
+            from PIL import Image
+        except ImportError:
+            raise RuntimeError("Pillow (PIL) is not installed. Run 'pip install pillow' to enable raw pixel sampling.")
+
         ext = os.path.splitext(photo_path)[1].lower()
         if ext in ['.jpg', '.jpeg', '.png', '.tif', '.tiff', '.bmp']:
             im = Image.open(photo_path)
