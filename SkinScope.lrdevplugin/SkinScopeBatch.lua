@@ -8,6 +8,7 @@
 ]]
 
 local LrApplication = import 'LrApplication'
+local LrApplicationView = import 'LrApplicationView'
 local LrDialogs = import 'LrDialogs'
 local LrFunctionContext = import 'LrFunctionContext'
 local LrPathUtils = import 'LrPathUtils'
@@ -19,9 +20,21 @@ local SkinSampler = dofile(LrPathUtils.child(_PLUGIN.path, 'SkinSampler.lua'))
 
 LrTasks.startAsyncTask(function()
     local catalog = LrApplication.activeCatalog()
+    local curModule = LrApplicationView.getCurrentModuleName()
+
+    -- Lightroom Develop module quirk: getTargetPhotos() only returns the active photo unless in Library
+    local wasInDevelop = (curModule == 'develop')
+    if wasInDevelop then
+        LrApplicationView.switchToModule('library')
+        LrTasks.sleep(0.15)
+    end
+
     local photos = catalog:getTargetPhotos()
 
     if not photos or #photos == 0 then
+        if wasInDevelop then
+            LrApplicationView.switchToModule('develop')
+        end
         LrDialogs.message(
             "SkinScope: Batch Alignment",
             "No photos selected.\n\nPlease select one or more photos in the Library grid or filmstrip and try again.",
@@ -47,7 +60,12 @@ LrTasks.startAsyncTask(function()
         "Batch Align",
         "Cancel"
     )
-    if confirm ~= 'ok' then return end
+    if confirm ~= 'ok' then
+        if wasInDevelop then
+            LrApplicationView.switchToModule('develop')
+        end
+        return
+    end
 
     LrFunctionContext.callWithContext('skinScopeBatchProgress', function(context)
         local progress = LrProgressScope({
@@ -68,73 +86,79 @@ LrTasks.startAsyncTask(function()
             progress:setCaption(string.format("%s  (%d / %d)", fileName, i, photoCount))
             LrTasks.yield()
 
-            -- Step 1: Read current develop settings
-            local ds = photo:getDevelopSettings() or {}
-            local curTemp = ds.Temperature or 5500
-            local curTint = ds.Tint or 8
-            local curOrangeHue = ds.HueAdjustmentOrange or 0
-            local curOrangeSat = ds.SaturationAdjustmentOrange or 0
-            local curExp = ds.Exposure2012 or ds.Exposure or 0
+            local itemOk, itemErr = LrTasks.pcall(function()
+                -- Step 1: Read current develop settings
+                local ds = photo:getDevelopSettings() or {}
+                local curTemp = ds.Temperature or 5500
+                local curTint = ds.Tint or 8
+                local curOrangeHue = ds.HueAdjustmentOrange or 0
+                local curOrangeSat = ds.SaturationAdjustmentOrange or 0
+                local curExp = ds.Exposure2012 or ds.Exposure or 0
 
-            local flashFired = 0
-            LrTasks.pcall(function()
-                flashFired = photo:getRawMetadata('flashFired') or 0
-            end)
+                local flashFired = 0
+                LrTasks.pcall(function()
+                    flashFired = photo:getRawMetadata('flashFired') or 0
+                end)
 
-            -- Step 2: Sample skin pixels
-            local samples = SkinSampler.samplePhoto(photo)
-            local sk = samples and samples.sampled_skin
+                -- Step 2: Sample skin pixels
+                local samples = SkinSampler.samplePhoto(photo)
+                local sk = samples and samples.sampled_skin
 
-            if not sk then
-                skippedCount = skippedCount + 1
-                summaries[#summaries + 1] = {
-                    fileName = fileName,
-                    status = "Skipped (No skin detected)",
-                }
-            else
-                -- Step 3: Evaluate skin state and solve target Orange HSL
-                local res = SkinMath.evaluate_active_photo(
-                    curTemp, curTint, curOrangeHue,
-                    'auto_detect', 'auto_detect', 'neutral', 'winter',
-                    flashFired, nil, 'female', curExp, curOrangeSat,
-                    sk.r, sk.g, sk.b, curTemp, curTint
-                )
-
-                if res and res.suggested_hsl_orange_target and res.suggested_orange_sat_target then
-                    local targetHue = res.suggested_hsl_orange_target
-                    local targetSat = res.suggested_orange_sat_target
-                    local newSettings = {
-                        HueAdjustmentOrange = targetHue,
-                        SaturationAdjustmentOrange = targetSat,
-                    }
-
-                    -- Step 4: Apply settings with named history transaction
-                    local writeOk = false
-                    catalog:withWriteAccessDo('SkinScope: Batch I-Line Alignment', function()
-                        photo:applyDevelopSettings(newSettings)
-                        writeOk = true
-                    end)
-
-                    if writeOk then
-                        successCount = successCount + 1
-                        local compName = res.detected_complexion_title or "Detected"
-                        summaries[#summaries + 1] = {
-                            fileName = fileName,
-                            status = string.format("Hue %+d (Δ%+d), Sat %+d (Δ%+d) [%s]",
-                                targetHue, targetHue - curOrangeHue,
-                                targetSat, targetSat - curOrangeSat,
-                                compName),
-                        }
-                    else
-                        errors[#errors + 1] = fileName .. ": Write transaction failed"
-                    end
-                else
+                if not sk then
                     skippedCount = skippedCount + 1
                     summaries[#summaries + 1] = {
                         fileName = fileName,
-                        status = "Skipped (Could not solve targets)",
+                        status = "Skipped (No skin detected)",
                     }
+                else
+                    -- Step 3: Evaluate skin state and solve target Orange HSL
+                    local res = SkinMath.evaluate_active_photo(
+                        curTemp, curTint, curOrangeHue,
+                        'auto_detect', 'auto_detect', 'neutral', 'winter',
+                        flashFired, nil, 'female', curExp, curOrangeSat,
+                        sk.r, sk.g, sk.b, curTemp, curTint
+                    )
+
+                    if res and res.suggested_hsl_orange_target and res.suggested_orange_sat_target then
+                        local targetHue = res.suggested_hsl_orange_target
+                        local targetSat = res.suggested_orange_sat_target
+                        local newSettings = {
+                            HueAdjustmentOrange = targetHue,
+                            SaturationAdjustmentOrange = targetSat,
+                        }
+
+                        -- Step 4: Apply settings with named history transaction
+                        local writeOk = false
+                        catalog:withWriteAccessDo('SkinScope: Batch I-Line Alignment', function()
+                            photo:applyDevelopSettings(newSettings)
+                            writeOk = true
+                        end)
+
+                        if writeOk then
+                            successCount = successCount + 1
+                            local compName = res.detected_complexion_title or "Detected"
+                            summaries[#summaries + 1] = {
+                                fileName = fileName,
+                                status = string.format("Hue %+d (Δ%+d), Sat %+d (Δ%+d) [%s]",
+                                    targetHue, targetHue - curOrangeHue,
+                                    targetSat, targetSat - curOrangeSat,
+                                    compName),
+                            }
+                        else
+                            errors[#errors + 1] = fileName .. ": Write transaction failed"
+                        end
+                    else
+                        skippedCount = skippedCount + 1
+                        summaries[#summaries + 1] = {
+                            fileName = fileName,
+                            status = "Skipped (Could not solve targets)",
+                        }
+                    end
                 end
+            end)
+
+            if not itemOk then
+                errors[#errors + 1] = fileName .. ": " .. tostring(itemErr)
             end
 
             if i < photoCount and not progress:isCanceled() then
@@ -143,6 +167,10 @@ LrTasks.startAsyncTask(function()
         end
 
         progress:done()
+
+        if wasInDevelop then
+            LrApplicationView.switchToModule('develop')
+        end
 
         -- Results dialog
         local resultTitle = "SkinScope: Batch Alignment Done"

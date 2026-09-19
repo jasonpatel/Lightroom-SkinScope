@@ -82,6 +82,7 @@ function SkinSampler.samplePhoto(photo)
 
     -- Helper to execute python and parse results
     local function executeAndParse(sourceFile)
+        pcall(function() os.remove(sampleJson) end)
         local cmd = string.format('python "%s" "%s" "%s"', pyScript, sourceFile, sampleJson)
         local code = LrTasks.execute(cmd)
         if code ~= 0 then
