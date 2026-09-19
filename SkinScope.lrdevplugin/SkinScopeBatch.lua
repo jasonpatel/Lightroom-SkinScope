@@ -137,12 +137,18 @@ LrTasks.startAsyncTask(function()
                         if writeOk then
                             successCount = successCount + 1
                             local compName = res.detected_complexion_title or "Detected"
+                            local infoStr = ""
+                            if samples and samples.sample_info and samples.sample_info.width then
+                                infoStr = string.format(" (%d×%d px • %d skin px)",
+                                    samples.sample_info.width, samples.sample_info.height,
+                                    samples.sample_info.count or 0)
+                            end
                             summaries[#summaries + 1] = {
                                 fileName = fileName,
-                                status = string.format("Hue %+d (Δ%+d), Sat %+d (Δ%+d) [%s]",
+                                status = string.format("Hue %+d (Δ%+d), Sat %+d (Δ%+d) [%s]%s",
                                     targetHue, targetHue - curOrangeHue,
                                     targetSat, targetSat - curOrangeSat,
-                                    compName),
+                                    compName, infoStr),
                             }
                         else
                             errors[#errors + 1] = fileName .. ": Write transaction failed"

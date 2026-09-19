@@ -139,10 +139,20 @@ function SkinSampler.samplePhoto(photo)
             end
         end
 
+        local width = tonumber(content:match('"width":%s*(%d+)'))
+        local height = tonumber(content:match('"height":%s*(%d+)'))
+        local count = tonumber(content:match('"count":%s*(%d+)'))
+
         return {
             sampled_skin = sampledSkin,
             face_sample = faceSample,
             body_sample = bodySample,
+            sample_info = {
+                width = width,
+                height = height,
+                count = count,
+                source = (sourceFile == thumbPath and "Preview" or "Raw"),
+            },
         }
     end
 

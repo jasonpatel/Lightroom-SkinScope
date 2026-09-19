@@ -117,6 +117,8 @@ def sample_photo(photo_path, out_json):
             primary = face_stats or overall_stats
             res = {
                 "success": True,
+                "width": w,
+                "height": h,
                 "r": primary["r"],
                 "g": primary["g"],
                 "b": primary["b"],

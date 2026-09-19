@@ -95,6 +95,14 @@ function SkinScopeDialog.show(activeSettings)
         propertyTable.profile_status_str = "Adobe Color (Optimal ✔)"
         propertyTable.profile_status_color = LrColor(0.20, 0.78, 0.30)
 
+        local initInfo = activeSettings and activeSettings.sample_info
+        if initInfo and initInfo.width then
+            propertyTable.sample_info_str = string.format("Preview: %d×%d px • %d skin pixels",
+                initInfo.width, initInfo.height, initInfo.count or 0)
+        else
+            propertyTable.sample_info_str = "Preview: Standard"
+        end
+
         propertyTable.exp_low_text = "Low EV"
         propertyTable.exp_mid_text = "Mid EV"
         propertyTable.exp_high_text = "High EV"
@@ -407,6 +415,10 @@ function SkinScopeDialog.show(activeSettings)
                     propertyTable.sampled_skin = samples.sampled_skin
                     propertyTable.face_sample = samples.face_sample
                     propertyTable.body_sample = samples.body_sample
+                    if samples.sample_info and samples.sample_info.width then
+                        propertyTable.sample_info_str = string.format("Preview: %d×%d px • %d skin pixels",
+                            samples.sample_info.width, samples.sample_info.height, samples.sample_info.count or 0)
+                    end
                 end
 
                 updateDiagnostics()
@@ -574,6 +586,14 @@ function SkinScopeDialog.show(activeSettings)
                     title = "Next ▶",
                     action = function() selectAdjacentPhoto(1) end,
                 },
+            },
+
+            f:static_text {
+                title = LrView.bind('sample_info_str'),
+                font = "<system/small>",
+                alignment = "center",
+                text_color = LrColor(0.45, 0.50, 0.55),
+                fill_horizontal = 1,
             },
 
             f:separator { fill_horizontal = 1 },

@@ -68,6 +68,7 @@ LrTasks.startAsyncTask(function()
         local sampledSkin = samples and samples.sampled_skin
         local faceSample = samples and samples.face_sample
         local bodySample = samples and samples.body_sample
+        local sampleInfo = samples and samples.sample_info
 
         local profileName = "Adobe Color"
         LrTasks.pcall(function()
@@ -90,6 +91,7 @@ LrTasks.startAsyncTask(function()
             sampled_skin = sampledSkin,
             face_sample = faceSample,
             body_sample = bodySample,
+            sample_info = sampleInfo,
         }
 
         local dialogPath = LrPathUtils.child(_PLUGIN.path, 'SkinScopeDialog.lua')
