@@ -32,6 +32,39 @@ Judging skin tones by eye is prone to eye fatigue, room ambient casts, and color
 
 ---
 
+## 📥 Download & Installation
+
+### 1. Download the Plugin
+* 👉 [**Download Latest Release (SkinScope-v1.0.zip)**](https://github.com/jasonpatel/Lightroom-SkinScope/releases/latest)
+* Extract the `.zip` archive on your computer. You will find a folder named **`SkinScope.lrplugin`**.  
+  *(Recommended: Keep this folder in a permanent location like `Documents/Lightroom Plugins/`)*.
+
+---
+
+### 2. Add to Adobe Lightroom Classic
+1. Open **Adobe Lightroom Classic**.
+2. Go to the top menu bar: **File** → **Plug-in Manager...**
+3. In the bottom-left corner of the dialog, click the **Add** button.
+4. Browse to the folder where you extracted the plugin, select the **`SkinScope.lrplugin`** folder, and click **Select Folder** (Windows) or **Add Plug-in** (Mac).
+5. The status indicator next to **SkinScope** will show a green circle (`Installed and running`). Click **Done**.
+
+---
+
+### 🎯 How to Use
+
+1. Switch to Lightroom's **Develop** module (press `D`) and select any portrait.
+2. Open the SkinScope floating HUD:
+   * **Windows shortcut**: <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>S</kbd>
+   * **Mac shortcut**: <kbd>Cmd</kbd> + <kbd>Opt</kbd> + <kbd>Shift</kbd> + <kbd>S</kbd>
+   * *(Or via menu: **Help** → **Plug-in Extras** → **SkinScope**)*
+3. The real-time 344px floating HUD opens alongside your photo:
+   * **Complexion Profile**: Auto-Detect reads the skin tone, or select from 8 Van Hurkman calibrated profiles.
+   * **Live Auto-Sync**: Check `Live Auto-Sync` to automatically sync Develop sliders in real time as you browse profiles.
+   * **1-Click Orange HSL Snap**: Click the prominent **`Orange HSL: [Δ] (Align)`** button to immediately align skin tones to the Rec.709 Vectorscope I-Line.
+   * **Exposure Snapping**: Click **Low**, **Mid**, or **High** to snap exposure to exact Van Hurkman luminance targets.
+
+---
+
 ## 📁 Repository Structure
 
 * [**`SPECIFICATION.md`**](file:///U:/%5BObsidian%5D/Home/IT/GitHub%20Projects/Lightroom-SkinScope/SPECIFICATION.md): Complete mathematical foundations, color science, solver algorithms, and decision log.
