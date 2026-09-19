@@ -6,7 +6,7 @@ return {
     LrPluginName = 'SkinScope (Vectorscope Skin Tone Assistant)',
     LrPluginInfoUrl = 'https://github.com/jasonpatel/Lightroom-SkinScope',
 
-    LrPluginExtrasMenuItems = {
+    LrExportMenuItems = {
         {
             title = "SkinScope: Vectorscope Skin Tone Assistant...",
             file = "SkinScopePlugin.lua",
@@ -21,13 +21,6 @@ return {
         },
     },
 
-    LrExportMenuItems = {
-        {
-            title = "SkinScope: Vectorscope Skin Tone Assistant...",
-            file = "SkinScopePlugin.lua",
-        },
-    },
-
     LrLibraryMenuItems = {
         {
             title = "SkinScope: Vectorscope Skin Tone Assistant...",
@@ -36,6 +29,10 @@ return {
         {
             title = "SkinScope: Batch Align Selected to I-Line...",
             file = "SkinScopeBatch.lua",
+        },
+        {
+            title = "SkinScope: Settings & Defaults...",
+            file = "SettingsDialog.lua",
         },
     },
 
