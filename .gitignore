@@ -1,6 +1,7 @@
 # Temporary bitmaps and swatch caches
 *.bmp
 *.png
+!assets/*.png
 skin_sample.json
 *.log
 
