@@ -16,7 +16,8 @@ local LrColor = import 'LrColor'
 local LrTasks = import 'LrTasks'
 local LrFunctionContext = import 'LrFunctionContext'
 local LrHttp = import 'LrHttp'
-local SkinMath = dofile(_PLUGIN.path .. '/SkinMath.lua')
+local LrPathUtils = import 'LrPathUtils'
+local SkinMath = dofile(LrPathUtils.child(_PLUGIN.path, 'SkinMath.lua'))
 
 local SkinScopeDialog = {}
 SkinScopeDialog.isOpen = false
@@ -252,7 +253,9 @@ function SkinScopeDialog.show(activeSettings)
                 
                 propertyTable.res = res
             else
-                local errFile = io.open("C:\\Users\\me\\AppData\\Roaming\\Adobe\\Lightroom\\skinscope_diag_error.log", "a")
+                local logDir = LrPathUtils.getStandardFilePath('appData') or _PLUGIN.path
+                local logPath = LrPathUtils.child(logDir, 'skinscope_diag_error.log')
+                local errFile = io.open(logPath, "a")
                 if errFile then
                     errFile:write("updateDiagnostics error: " .. tostring(res) .. "\n")
                     errFile:close()
@@ -397,8 +400,8 @@ function SkinScopeDialog.show(activeSettings)
                 local photoPath = nil
                 LrTasks.pcall(function() photoPath = photo:getRawMetadata('path') end)
                 if photoPath and photoPath ~= "" then
-                    local sampleJson = _PLUGIN.path .. "/skin_sample.json"
-                    local pyScript = _PLUGIN.path .. "/sample_photo.py"
+                    local sampleJson = LrPathUtils.child(_PLUGIN.path, "skin_sample.json")
+                    local pyScript = LrPathUtils.child(_PLUGIN.path, "sample_photo.py")
                     local cmd = string.format('python "%s" "%s" "%s"', pyScript, photoPath, sampleJson)
                     LrTasks.pcall(function()
                         LrTasks.execute(cmd)

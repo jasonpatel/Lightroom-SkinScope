@@ -9,6 +9,7 @@ local LrTasks = import 'LrTasks'
 local LrDialogs = import 'LrDialogs'
 local LrDevelopController = import 'LrDevelopController'
 local LrApplicationView = import 'LrApplicationView'
+local LrPathUtils = import 'LrPathUtils'
 
 LrTasks.startAsyncTask(function()
     local success, err = LrTasks.pcall(function()
@@ -64,8 +65,8 @@ LrTasks.startAsyncTask(function()
         local faceSample = nil
         local bodySample = nil
         if photoPath and photoPath ~= "" then
-            local sampleJson = _PLUGIN.path .. "/skin_sample.json"
-            local pyScript = _PLUGIN.path .. "/sample_photo.py"
+            local sampleJson = LrPathUtils.child(_PLUGIN.path, "skin_sample.json")
+            local pyScript = LrPathUtils.child(_PLUGIN.path, "sample_photo.py")
             local cmd = string.format('python "%s" "%s" "%s"', pyScript, photoPath, sampleJson)
             LrTasks.pcall(function()
                 LrTasks.execute(cmd)
@@ -137,14 +138,17 @@ LrTasks.startAsyncTask(function()
             body_sample = bodySample,
         }
 
-        local SkinScopeDialog = dofile(_PLUGIN.path .. '/SkinScopeDialog.lua')
+        local dialogPath = LrPathUtils.child(_PLUGIN.path, 'SkinScopeDialog.lua')
+        local SkinScopeDialog = dofile(dialogPath)
         SkinScopeDialog.show(activeSettings)
     end)
 
     if not success then
         local errStr = tostring(err)
         pcall(function()
-            local f = io.open("C:\\Users\\me\\AppData\\Roaming\\Adobe\\Lightroom\\skinscope_error.log", "w")
+            local logDir = LrPathUtils.getStandardFilePath('appData') or _PLUGIN.path
+            local logPath = LrPathUtils.child(logDir, 'skinscope_error.log')
+            local f = io.open(logPath, "w")
             if f then
                 f:write(errStr)
                 f:close()

@@ -4,7 +4,14 @@ return {
 
     LrToolkitIdentifier = 'com.jason.skinscope',
     LrPluginName = 'SkinScope (Vectorscope Skin Tone Assistant)',
-    LrPluginInfoUrl = 'https://github.com/jason/Lightroom-SkinScope',
+    LrPluginInfoUrl = 'https://github.com/jasonpatel/Lightroom-SkinScope',
+
+    LrPluginExtrasMenuItems = {
+        {
+            title = "SkinScope: Vectorscope Skin Tone Assistant...",
+            file = "SkinScopePlugin.lua",
+        },
+    },
 
     LrExportMenuItems = {
         {
