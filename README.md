@@ -5,12 +5,10 @@
 
 ---
 
-![SkinScope in Adobe Lightroom Classic Develop Module](assets/skinscope-lightroom-develop.png)
-
 <p align="center">
-  <img src="assets/skinscope-hud-aligned.png" alt="SkinScope Real-time HUD" width="360" />
+  <img src="assets/skinscope-hud.png" alt="SkinScope Real-time Floating HUD" width="380" />
   <br>
-  <em>SkinScope Real-time Floating HUD: Vectorscope I-Line alignment, Van Hurkman complexions, and split Before/After swatch.</em>
+  <em>SkinScope Real-time Floating HUD: Vectorscope I-Line alignment, Van Hurkman complexions, and continuous Before/After swatch.</em>
 </p>
 
 ---
