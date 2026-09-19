@@ -15,6 +15,10 @@ return {
             title = "SkinScope: Batch Align Selected to I-Line...",
             file = "SkinScopeBatch.lua",
         },
+        {
+            title = "SkinScope: Settings & Defaults...",
+            file = "SettingsDialog.lua",
+        },
     },
 
     LrExportMenuItems = {

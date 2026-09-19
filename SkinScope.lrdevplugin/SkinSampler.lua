@@ -7,6 +7,7 @@
 
 local LrTasks = import 'LrTasks'
 local LrPathUtils = import 'LrPathUtils'
+local LrPrefs = import 'LrPrefs'
 
 local SkinSampler = {}
 
@@ -44,6 +45,9 @@ end
 function SkinSampler.samplePhoto(photo)
     if not photo then return nil end
 
+    local pluginPrefs = LrPrefs.prefsForPlugin()
+    local thumbSize = tonumber(pluginPrefs.thumbnailSize) or 1024
+
     local logDir = LrPathUtils.getStandardFilePath('appData') or _PLUGIN.path
     local thumbPath = LrPathUtils.child(logDir, 'skinscope_thumb.jpg')
     local sampleJson = LrPathUtils.child(_PLUGIN.path, 'skin_sample.json')
@@ -57,7 +61,7 @@ function SkinSampler.samplePhoto(photo)
 
     -- 1. Try native rendered thumbnail first
     local sampleSource = nil
-    local jpegData, thumbErr = SkinSampler.getRenderedThumbnail(photo, 1024, 5)
+    local jpegData, thumbErr = SkinSampler.getRenderedThumbnail(photo, thumbSize, 5)
     if jpegData then
         local tf = io.open(thumbPath, "wb")
         if tf then

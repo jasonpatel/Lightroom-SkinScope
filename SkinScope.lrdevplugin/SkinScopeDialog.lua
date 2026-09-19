@@ -17,6 +17,7 @@ local LrTasks = import 'LrTasks'
 local LrFunctionContext = import 'LrFunctionContext'
 local LrHttp = import 'LrHttp'
 local LrPathUtils = import 'LrPathUtils'
+local LrPrefs = import 'LrPrefs'
 local SkinMath = dofile(LrPathUtils.child(_PLUGIN.path, 'SkinMath.lua'))
 
 local SkinScopeDialog = {}
@@ -63,10 +64,12 @@ function SkinScopeDialog.show(activeSettings)
         SkinScopeDialog.isOpen = true
         local f = LrView.osFactory()
 
+        local pluginPrefs = LrPrefs.prefsForPlugin()
+
         -- Property table for reactive UI bindings
         local propertyTable = LrBinding.makePropertyTable(context)
-        propertyTable.complexion = 'auto_detect'
-        propertyTable.gender = 'female'
+        propertyTable.complexion = pluginPrefs.defaultComplexion or 'auto_detect'
+        propertyTable.gender = pluginPrefs.defaultGender or 'female'
         propertyTable.sample_zone = 'face'
         propertyTable.face_sample = nil
         propertyTable.body_sample = nil
@@ -95,7 +98,7 @@ function SkinScopeDialog.show(activeSettings)
         propertyTable.exp_low_text = "Low EV"
         propertyTable.exp_mid_text = "Mid EV"
         propertyTable.exp_high_text = "High EV"
-        propertyTable.live_mode = true
+        propertyTable.live_mode = (pluginPrefs.defaultLiveMode ~= nil) and pluginPrefs.defaultLiveMode or true
 
         local swatch_toggle = false
 
