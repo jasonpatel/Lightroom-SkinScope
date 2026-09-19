@@ -614,6 +614,8 @@ function SkinScopeDialog.show(activeSettings)
                 },
             },
 
+            f:separator { fill_horizontal = 1 },
+
             -- Hero Vectorscope Gauge Card
             f:column {
                 fill_horizontal = 1,
@@ -638,7 +640,7 @@ function SkinScopeDialog.show(activeSettings)
                     font = "<system/small>",
                     alignment = "center",
                     fill_horizontal = 1,
-                    text_color = LrColor(0.92, 0.92, 0.92),
+                    text_color = LrColor(0.35, 0.38, 0.42),
                 },
                 f:row {
                     fill_horizontal = 1,
@@ -662,7 +664,7 @@ function SkinScopeDialog.show(activeSettings)
                     font = "<system/small>",
                     alignment = "center",
                     fill_horizontal = 1,
-                    text_color = LrColor(0.70, 0.70, 0.70),
+                    text_color = LrColor(0.30, 0.35, 0.40),
                 },
             },
 
@@ -705,14 +707,14 @@ function SkinScopeDialog.show(activeSettings)
                         font = "<system/small>",
                         alignment = "left",
                         fill_horizontal = 0.5,
-                        text_color = LrColor(0.70, 0.70, 0.70),
+                        text_color = LrColor(0.35, 0.38, 0.42),
                     },
                     f:static_text {
                         title = LrView.bind('target_color_label'),
                         font = "<system/small>",
                         alignment = "right",
                         fill_horizontal = 0.5,
-                        text_color = LrColor(0.70, 0.70, 0.70),
+                        text_color = LrColor(0.35, 0.38, 0.42),
                     },
                 },
             },
@@ -722,6 +724,7 @@ function SkinScopeDialog.show(activeSettings)
             -- Live vs On-Press Mode Toggle (Checkbox)
             f:row {
                 fill_horizontal = 1,
+                spacing = 6,
                 f:static_text { title = "Sync:", width = 72, font = "<system/bold>" },
                 f:checkbox {
                     title = "Live Auto-Sync",
@@ -733,7 +736,7 @@ function SkinScopeDialog.show(activeSettings)
             -- Context & Calibration Profile Controls
             f:row {
                 fill_horizontal = 1,
-                spacing = 4,
+                spacing = 6,
                 f:static_text { title = "Complexion:", width = 72, font = "<system/bold>" },
                 f:popup_menu {
                     value = LrView.bind('complexion'),
@@ -754,7 +757,7 @@ function SkinScopeDialog.show(activeSettings)
 
             f:row {
                 fill_horizontal = 1,
-                spacing = 4,
+                spacing = 6,
                 f:static_text { title = "Tone Info:", width = 72 },
                 f:static_text {
                     title = LrView.bind('detected_complexion_str'),
@@ -766,7 +769,7 @@ function SkinScopeDialog.show(activeSettings)
 
             f:row {
                 fill_horizontal = 1,
-                spacing = 4,
+                spacing = 6,
                 f:static_text { title = "Profile:", width = 72 },
                 f:static_text {
                     title = LrView.bind('profile_status_str'),
@@ -813,7 +816,7 @@ function SkinScopeDialog.show(activeSettings)
             -- 1-Click Sun Tan Segmented Strip (Natural / Sun-Kissed / Bronze)
             f:row {
                 fill_horizontal = 1,
-                spacing = 2,
+                spacing = 6,
                 f:static_text { title = "Sun Tan:", width = 72, font = "<system/bold>" },
                 f:radio_button {
                     title = "Natural",
@@ -836,7 +839,7 @@ function SkinScopeDialog.show(activeSettings)
             -- Look / Mood Dropdown
             f:row {
                 fill_horizontal = 1,
-                spacing = 4,
+                spacing = 6,
                 f:static_text { title = "Look:", width = 72, font = "<system/bold>" },
                 f:popup_menu {
                     value = LrView.bind('mood'),
@@ -852,7 +855,7 @@ function SkinScopeDialog.show(activeSettings)
 
             f:row {
                 fill_horizontal = 1,
-                spacing = 4,
+                spacing = 6,
                 f:static_text { title = "Grading:", width = 72 },
                 f:static_text {
                     title = LrView.bind('look_info_str'),
@@ -897,7 +900,7 @@ function SkinScopeDialog.show(activeSettings)
                 f:static_text {
                     title = "Snap Exposure (Luma Target):",
                     font = "<system/small>",
-                    text_color = LrColor(0.70, 0.70, 0.70),
+                    text_color = LrColor(0.30, 0.35, 0.40),
                     fill_horizontal = 1,
                 },
                 f:row {
@@ -978,14 +981,14 @@ function SkinScopeDialog.show(activeSettings)
                     font = "<system/small>",
                     alignment = "center",
                     fill_horizontal = 1,
-                    text_color = LrColor(0.55, 0.55, 0.55),
+                    text_color = LrColor(0.45, 0.48, 0.52),
                 },
             },
         }
 
         LrDialogs.presentFloatingDialog(_PLUGIN, {
             title = "SkinScope",
-            save_frame = "skinscope_floating_hud_v28",
+            save_frame = "skinscope_floating_hud_v29",
             contents = contents,
             windowWillClose = function()
                 isRunning = false
