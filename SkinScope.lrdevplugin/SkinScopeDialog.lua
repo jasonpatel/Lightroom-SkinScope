@@ -18,8 +18,6 @@ local LrFunctionContext = import 'LrFunctionContext'
 local LrHttp = import 'LrHttp'
 local LrPathUtils = import 'LrPathUtils'
 local LrPrefs = import 'LrPrefs'
-local LrSelection = nil
-pcall(function() LrSelection = import 'LrSelection' end)
 local SkinMath = dofile(LrPathUtils.child(_PLUGIN.path, 'SkinMath.lua'))
 
 local SkinScopeDialog = {}
@@ -494,27 +492,44 @@ function SkinScopeDialog.show(activeSettings)
         local initP = initCatalog and initCatalog:getTargetPhoto()
         if initP then lastPhotoId = initP.localIdentifier end
 
-        -- Helper to apply skin tone & luma settings to newly selected photo if requested
-        local function applySettingsToPhoto(targetHue, targetSat, targetExp)
-            if LrApplicationView.getCurrentModuleName() ~= 'develop' then
-                LrApplicationView.switchToModule('develop')
-                LrTasks.sleep(0.05)
-            end
+        -- Helper to apply skin tone & luma settings directly to photo and Develop module
+        local function applySettingsToPhoto(photo, targetHue, targetSat, targetExp)
+            if not photo then return end
+
+            -- 1. Direct catalog database transaction: permanently saves to this photo
+            local catalog = LrApplication.activeCatalog()
             pcall(function()
-                LrDevelopController.setValue('HueAdjustmentOrange', targetHue)
+                catalog:withWriteAccessDo("SkinScope: Apply Settings", function()
+                    photo:applyDevelopSettings({
+                        HueAdjustmentOrange = targetHue,
+                        SaturationAdjustmentOrange = targetSat,
+                        Exposure2012 = targetExp,
+                    })
+                end)
             end)
-            LrTasks.sleep(0.03)
-            pcall(function()
-                LrDevelopController.setValue('SaturationAdjustmentOrange', targetSat)
-            end)
-            LrTasks.sleep(0.03)
-            pcall(function()
-                if LrDevelopController.getValue('Exposure2012') ~= nil then
-                    LrDevelopController.setValue('Exposure2012', targetExp)
-                else
-                    LrDevelopController.setValue('Exposure', targetExp)
+
+            -- 2. If in Develop module, also push to LrDevelopController if photo matches
+            if LrApplicationView.getCurrentModuleName() == 'develop' then
+                local cur = catalog:getTargetPhoto()
+                if cur and cur.localIdentifier == photo.localIdentifier then
+                    pcall(function()
+                        LrDevelopController.setValue('HueAdjustmentOrange', targetHue)
+                    end)
+                    LrTasks.sleep(0.03)
+                    pcall(function()
+                        LrDevelopController.setValue('SaturationAdjustmentOrange', targetSat)
+                    end)
+                    LrTasks.sleep(0.03)
+                    pcall(function()
+                        if LrDevelopController.getValue('Exposure2012') ~= nil then
+                            LrDevelopController.setValue('Exposure2012', targetExp)
+                        else
+                            LrDevelopController.setValue('Exposure', targetExp)
+                        end
+                    end)
                 end
-            end)
+            end
+
             propertyTable.current_orange_hue = targetHue
             propertyTable.current_orange_sat = targetSat
             propertyTable.current_exposure = targetExp
@@ -528,10 +543,26 @@ function SkinScopeDialog.show(activeSettings)
 
             local shouldApply = (forceApply == true)
 
-            -- Capture current skin tone and luma exposure settings before leaving this photo
-            local savedHue = propertyTable.current_orange_hue or 0
-            local savedSat = propertyTable.current_orange_sat or 0
-            local savedExp = propertyTable.current_exposure or 0
+            -- Determine settings to apply:
+            -- Use active adjusted values, or if unadjusted (0), use the calculated target!
+            local res = propertyTable.res
+            local savedHue = propertyTable.current_orange_hue
+            if (not savedHue or savedHue == 0) and res and res.suggested_hsl_orange_target then
+                savedHue = res.suggested_hsl_orange_target
+            end
+            savedHue = savedHue or 0
+
+            local savedSat = propertyTable.current_orange_sat
+            if (not savedSat or savedSat == 0) and res and res.suggested_orange_sat_target then
+                savedSat = res.suggested_orange_sat_target
+            end
+            savedSat = savedSat or 0
+
+            local savedExp = propertyTable.current_exposure
+            if (not savedExp or savedExp == 0) and res and res.exp_target_mid then
+                savedExp = res.exp_target_mid
+            end
+            savedExp = savedExp or 0
 
             LrTasks.startAsyncTask(function()
                 local success, err = LrTasks.pcall(function()
@@ -541,123 +572,118 @@ function SkinScopeDialog.show(activeSettings)
 
                     local oldId = targetPhoto.localIdentifier
 
-                    -- Strategy 1: Explicit multi-photo selection (e.g. filmstrip subset)
+                    -- If applying and the current photo was not yet snapped, snap it now so current photo is saved
+                    if shouldApply and targetPhoto then
+                        applySettingsToPhoto(targetPhoto, savedHue, savedSat, savedExp)
+                    end
+
+                    -- Discover adjacent photo across active selection, filmstrip, or collection
+                    local nextPhoto = nil
+                    local allPhotos = nil
+
                     local targetPhotos = catalog:getTargetPhotos()
                     if targetPhotos and #targetPhotos > 1 then
-                        local currentIndex = nil
-                        for i, p in ipairs(targetPhotos) do
-                            if p.localIdentifier == oldId then
-                                currentIndex = i
-                                break
-                            end
-                        end
-                        if currentIndex then
-                            local nextIndex = currentIndex + delta
-                            if nextIndex >= 1 and nextIndex <= #targetPhotos then
-                                local nextPhoto = targetPhotos[nextIndex]
-                                catalog:setSelectedPhotos(nextPhoto, targetPhotos)
-                                lastPhotoId = nextPhoto.localIdentifier
-                                if shouldApply then
-                                    applySettingsToPhoto(savedHue, savedSat, savedExp)
-                                    LrTasks.sleep(0.06)
+                        allPhotos = targetPhotos
+                    else
+                        local sources = catalog:getActiveSources()
+                        if sources and #sources > 0 then
+                            for _, src in ipairs(sources) do
+                                if src and src.getPhotos then
+                                    local srcPhotos = src:getPhotos()
+                                    if srcPhotos and #srcPhotos > 1 then
+                                        allPhotos = srcPhotos
+                                        break
+                                    end
                                 end
-                                refreshFromActivePhoto(nextPhoto, shouldApply and { hue = savedHue, sat = savedSat, exp = savedExp } or nil)
-                                if shouldApply then
-                                    LrDialogs.showBezel(string.format("Applied to Next Photo:\nOrange %+dH %+dS • Luma %+.2f EV", savedHue, savedSat, savedExp))
-                                end
-                                return
-                            else
-                                LrDialogs.showBezel(delta > 0 and "At end of selected photos." or "At start of selected photos.")
-                                return
                             end
                         end
                     end
 
-                    -- Strategy 2: Native LrSelection navigation (filmstrip/collection/folder)
-                    local selectionMoved = false
-                    if LrSelection then
-                        local callOk = pcall(function()
-                            if delta > 0 and LrSelection.nextPhoto then
-                                LrSelection.nextPhoto()
-                                selectionMoved = true
-                            elseif delta < 0 and LrSelection.previousPhoto then
-                                LrSelection.previousPhoto()
-                                selectionMoved = true
+                    if not allPhotos or #allPhotos <= 1 then
+                        pcall(function()
+                            local all = catalog:getAllPhotos()
+                            if all and #all > 1 then
+                                allPhotos = all
                             end
                         end)
-                        if not callOk then selectionMoved = false end
                     end
 
-                    -- Poll briefly for Lightroom to update its active target photo
-                    if selectionMoved then
-                        local newPhoto = nil
-                        for _ = 1, 8 do
-                            LrTasks.sleep(0.04)
-                            newPhoto = catalog:getTargetPhoto()
-                            if newPhoto and newPhoto.localIdentifier ~= oldId then
-                                break
-                            end
-                        end
-
-                        if newPhoto and newPhoto.localIdentifier ~= oldId then
-                            lastPhotoId = newPhoto.localIdentifier
-                            if shouldApply then
-                                applySettingsToPhoto(savedHue, savedSat, savedExp)
-                                LrTasks.sleep(0.06)
-                            end
-                            refreshFromActivePhoto(newPhoto, shouldApply and { hue = savedHue, sat = savedSat, exp = savedExp } or nil)
-                            if shouldApply then
-                                LrDialogs.showBezel(string.format("Applied to Next Photo:\nOrange %+dH %+dS • Luma %+.2f EV", savedHue, savedSat, savedExp))
-                            end
-                            return
-                        end
-                    end
-
-                    -- Strategy 3: Active sources fallback (folder / collection)
-                    local photos = nil
-                    local sources = catalog:getActiveSources()
-                    if sources and #sources > 0 then
-                        for _, src in ipairs(sources) do
-                            if src and src.getPhotos then
-                                local srcPhotos = src:getPhotos()
-                                if srcPhotos and #srcPhotos > 1 then
-                                    photos = srcPhotos
-                                    break
-                                end
-                            end
-                        end
-                    end
-
-                    if photos and #photos > 1 then
+                    if allPhotos and #allPhotos > 1 then
                         local currentIndex = nil
-                        for i, p in ipairs(photos) do
+                        for i, p in ipairs(allPhotos) do
                             if p.localIdentifier == oldId then
                                 currentIndex = i
                                 break
                             end
                         end
-
                         if currentIndex then
                             local nextIndex = currentIndex + delta
-                            if nextIndex >= 1 and nextIndex <= #photos then
-                                local nextPhoto = photos[nextIndex]
-                                catalog:setSelectedPhotos(nextPhoto, {})
-                                lastPhotoId = nextPhoto.localIdentifier
-                                if shouldApply then
-                                    applySettingsToPhoto(savedHue, savedSat, savedExp)
-                                    LrTasks.sleep(0.06)
-                                end
-                                refreshFromActivePhoto(nextPhoto, shouldApply and { hue = savedHue, sat = savedSat, exp = savedExp } or nil)
-                                if shouldApply then
-                                    LrDialogs.showBezel(string.format("Applied to Next Photo:\nOrange %+dH %+dS • Luma %+.2f EV", savedHue, savedSat, savedExp))
-                                end
+                            if nextIndex >= 1 and nextIndex <= #allPhotos then
+                                nextPhoto = allPhotos[nextIndex]
+                            else
+                                LrDialogs.showBezel(delta > 0 and "At end of photo list." or "At start of photo list.")
                                 return
                             end
                         end
                     end
 
-                    -- If we reached here, photo did not advance
-                    LrDialogs.showBezel(delta > 0 and "At end of photo list." or "At start of photo list.")
+                    if not nextPhoto then
+                        LrDialogs.showBezel("No adjacent photo found.")
+                        return
+                    end
+
+                    -- 1. Apply settings directly to nextPhoto BEFORE selection switch
+                    if shouldApply then
+                        pcall(function()
+                            catalog:withWriteAccessDo("SkinScope: Apply Settings to Next Photo", function()
+                                nextPhoto:applyDevelopSettings({
+                                    HueAdjustmentOrange = savedHue,
+                                    SaturationAdjustmentOrange = savedSat,
+                                    Exposure2012 = savedExp,
+                                })
+                            end)
+                        end)
+                    end
+
+                    -- 2. Switch active selection to nextPhoto
+                    lastPhotoId = nextPhoto.localIdentifier
+                    catalog:setSelectedPhotos(nextPhoto, targetPhotos or {})
+
+                    -- 3. Wait for Lightroom to switch the active photo in Develop module
+                    for _ = 1, 12 do
+                        LrTasks.sleep(0.04)
+                        local cur = catalog:getTargetPhoto()
+                        if cur and cur.localIdentifier == nextPhoto.localIdentifier then
+                            break
+                        end
+                    end
+                    LrTasks.sleep(0.10)
+
+                    -- 4. If in Develop module, ensure live controller sliders match
+                    if shouldApply and LrApplicationView.getCurrentModuleName() == 'develop' then
+                        pcall(function()
+                            LrDevelopController.setValue('HueAdjustmentOrange', savedHue)
+                        end)
+                        LrTasks.sleep(0.03)
+                        pcall(function()
+                            LrDevelopController.setValue('SaturationAdjustmentOrange', savedSat)
+                        end)
+                        LrTasks.sleep(0.03)
+                        pcall(function()
+                            if LrDevelopController.getValue('Exposure2012') ~= nil then
+                                LrDevelopController.setValue('Exposure2012', savedExp)
+                            else
+                                LrDevelopController.setValue('Exposure', savedExp)
+                            end
+                        end)
+                    end
+
+                    -- 5. Refresh HUD from nextPhoto with the applied values
+                    refreshFromActivePhoto(nextPhoto, shouldApply and { hue = savedHue, sat = savedSat, exp = savedExp } or nil)
+
+                    if shouldApply then
+                        LrDialogs.showBezel(string.format("Applied to Next Photo:\nOrange %+dH %+dS • Luma %+.2f EV", savedHue, savedSat, savedExp))
+                    end
                 end)
 
                 isNavigating = false
@@ -723,8 +749,8 @@ function SkinScopeDialog.show(activeSettings)
                                                (curExp ~= lastExp) or
                                                (curSat ~= lastSat)
 
-                        if isApplyingLive then
-                            -- Live sync is currently pushing values to Lightroom; skip overwriting
+                        if isApplyingLive or isNavigating then
+                            -- Live sync or photo navigation is active; skip overwriting
                         elseif isNewPhoto or slidersChanged or contextChanged then
                             lastPhotoId = currentId
                             lastTemp = curTemp
