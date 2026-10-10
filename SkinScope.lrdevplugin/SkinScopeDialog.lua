@@ -543,27 +543,6 @@ function SkinScopeDialog.show(activeSettings)
 
             local shouldApply = (forceApply == true)
 
-            -- Determine settings to apply:
-            -- Use active adjusted values, or if unadjusted (0), use the calculated target!
-            local res = propertyTable.res
-            local savedHue = propertyTable.current_orange_hue
-            if (not savedHue or savedHue == 0) and res and res.suggested_hsl_orange_target then
-                savedHue = res.suggested_hsl_orange_target
-            end
-            savedHue = savedHue or 0
-
-            local savedSat = propertyTable.current_orange_sat
-            if (not savedSat or savedSat == 0) and res and res.suggested_orange_sat_target then
-                savedSat = res.suggested_orange_sat_target
-            end
-            savedSat = savedSat or 0
-
-            local savedExp = propertyTable.current_exposure
-            if (not savedExp or savedExp == 0) and res and res.exp_target_mid then
-                savedExp = res.exp_target_mid
-            end
-            savedExp = savedExp or 0
-
             LrTasks.startAsyncTask(function()
                 local success, err = LrTasks.pcall(function()
                     local catalog = LrApplication.activeCatalog()
@@ -572,9 +551,15 @@ function SkinScopeDialog.show(activeSettings)
 
                     local oldId = targetPhoto.localIdentifier
 
-                    -- If applying and the current photo was not yet snapped, snap it now so current photo is saved
-                    if shouldApply and targetPhoto then
-                        applySettingsToPhoto(targetPhoto, savedHue, savedSat, savedExp)
+                    -- If applying, ensure current photo is snapped before advancing
+                    if shouldApply and propertyTable.res then
+                        local curHueDiff = math.abs((propertyTable.current_orange_hue or 0) - (propertyTable.res.suggested_hsl_orange_target or 0))
+                        if curHueDiff > 1 or not propertyTable.current_orange_hue or propertyTable.current_orange_hue == 0 then
+                            local tHue = propertyTable.res.suggested_hsl_orange_target or 0
+                            local tSat = propertyTable.res.suggested_orange_sat_target or 0
+                            local tExp = propertyTable.res.exp_target_mid or (propertyTable.current_exposure or 0)
+                            applySettingsToPhoto(targetPhoto, tHue, tSat, tExp)
+                        end
                     end
 
                     -- Discover adjacent photo across active selection, filmstrip, or collection
@@ -632,57 +617,33 @@ function SkinScopeDialog.show(activeSettings)
                         return
                     end
 
-                    -- 1. Apply settings directly to nextPhoto BEFORE selection switch
-                    if shouldApply then
-                        pcall(function()
-                            catalog:withWriteAccessDo("SkinScope: Apply Settings to Next Photo", function()
-                                nextPhoto:applyDevelopSettings({
-                                    HueAdjustmentOrange = savedHue,
-                                    SaturationAdjustmentOrange = savedSat,
-                                    Exposure2012 = savedExp,
-                                })
-                            end)
-                        end)
-                    end
-
-                    -- 2. Switch active selection to nextPhoto
+                    -- 1. Switch active selection to nextPhoto
                     lastPhotoId = nextPhoto.localIdentifier
                     catalog:setSelectedPhotos(nextPhoto, targetPhotos or {})
 
-                    -- 3. Wait for Lightroom to switch the active photo in Develop module
-                    for _ = 1, 12 do
-                        LrTasks.sleep(0.04)
+                    -- 2. Brief wait for Lightroom to switch active photo pointer
+                    for _ = 1, 6 do
                         local cur = catalog:getTargetPhoto()
                         if cur and cur.localIdentifier == nextPhoto.localIdentifier then
                             break
                         end
-                    end
-                    LrTasks.sleep(0.10)
-
-                    -- 4. If in Develop module, ensure live controller sliders match
-                    if shouldApply and LrApplicationView.getCurrentModuleName() == 'develop' then
-                        pcall(function()
-                            LrDevelopController.setValue('HueAdjustmentOrange', savedHue)
-                        end)
                         LrTasks.sleep(0.03)
-                        pcall(function()
-                            LrDevelopController.setValue('SaturationAdjustmentOrange', savedSat)
-                        end)
-                        LrTasks.sleep(0.03)
-                        pcall(function()
-                            if LrDevelopController.getValue('Exposure2012') ~= nil then
-                                LrDevelopController.setValue('Exposure2012', savedExp)
-                            else
-                                LrDevelopController.setValue('Exposure', savedExp)
-                            end
-                        end)
                     end
+                    LrTasks.sleep(0.04)
 
-                    -- 5. Refresh HUD from nextPhoto with the applied values
-                    refreshFromActivePhoto(nextPhoto, shouldApply and { hue = savedHue, sat = savedSat, exp = savedExp } or nil)
+                    -- 3. Assess the next photo based on its own pixels and scene lighting
+                    refreshFromActivePhoto(nextPhoto)
 
-                    if shouldApply then
-                        LrDialogs.showBezel(string.format("Applied to Next Photo:\nOrange %+dH %+dS • Luma %+.2f EV", savedHue, savedSat, savedExp))
+                    -- 4. If applying, solve & apply tailored settings for this specific photo
+                    if shouldApply and propertyTable.res then
+                        local targetHue = propertyTable.res.suggested_hsl_orange_target or 0
+                        local targetSat = propertyTable.res.suggested_orange_sat_target or 0
+                        local targetExp = propertyTable.res.exp_target_mid or (propertyTable.current_exposure or 0)
+
+                        applySettingsToPhoto(nextPhoto, targetHue, targetSat, targetExp)
+                        updateDiagnostics()
+
+                        LrDialogs.showBezel(string.format("Auto-Aligned Next Photo:\nOrange %+dH %+dS • Luma %+.2f EV", targetHue, targetSat, targetExp))
                     end
                 end)
 
