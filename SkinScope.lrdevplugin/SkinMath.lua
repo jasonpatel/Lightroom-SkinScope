@@ -11,49 +11,49 @@ local SkinMath = {}
 -- Calibrated against X-Rite ColorChecker Classic/Passport and Google Monk Skin Tone (MST) research
 SkinMath.COMPLEXIONS = {
     pale = { 
-        title = "1. Very Fair / Pale (Porcelain / English Rose)", 
+        title = "1. Porcelain", 
         baseline = 119.5, r = 0.92, g = 0.78, b = 0.73, sat_min = 0.06, sat_max = 0.16,
         female = { luma_min = 60, luma_max = 82, sat_target = 24, sat_min = 18, sat_max = 30 },
         male   = { luma_min = 55, luma_max = 77, sat_target = 22, sat_min = 16, sat_max = 28 },
     },
     fair = { 
-        title = "2. Fair / Light (European / Neutral Peach)", 
+        title = "2. Fair European", 
         baseline = 124.5, r = 0.86, g = 0.67, b = 0.58, sat_min = 0.08, sat_max = 0.18,
         female = { luma_min = 55, luma_max = 75, sat_target = 25, sat_min = 20, sat_max = 30 },
         male   = { luma_min = 50, luma_max = 70, sat_target = 23, sat_min = 18, sat_max = 28 },
     },
     east_asian = { 
-        title = "3. East Asian / Golden Light (Warm Ivory)", 
+        title = "3. East Asian", 
         baseline = 131.0, r = 0.86, g = 0.70, b = 0.56, sat_min = 0.08, sat_max = 0.18,
         female = { luma_min = 55, luma_max = 75, sat_target = 25, sat_min = 20, sat_max = 30 },
         male   = { luma_min = 50, luma_max = 70, sat_target = 23, sat_min = 18, sat_max = 28 },
     },
     olive = { 
-        title = "4. Olive / Sun-Kissed Tan (Mediterranean / Latino)", 
+        title = "4. Olive / Tan", 
         baseline = 131.5, r = 0.82, g = 0.64, b = 0.50, sat_min = 0.09, sat_max = 0.20,
         female = { luma_min = 45, luma_max = 68, sat_target = 26, sat_min = 21, sat_max = 31 },
         male   = { luma_min = 40, luma_max = 63, sat_target = 24, sat_min = 19, sat_max = 29 },
     },
     brown_light = { 
-        title = "5. Brown - Light (Wheatish / North Indian / Desi)", 
+        title = "5. Brown - Light", 
         baseline = 129.5, r = 0.75, g = 0.56, b = 0.43, sat_min = 0.09, sat_max = 0.22,
         female = { luma_min = 40, luma_max = 62, sat_target = 25, sat_min = 20, sat_max = 30 },
         male   = { luma_min = 35, luma_max = 57, sat_target = 23, sat_min = 18, sat_max = 28 },
     },
     brown_medium = { 
-        title = "6. Brown - Medium (Warm Bronze / South Indian Lighter)", 
+        title = "6. Brown - Medium", 
         baseline = 127.5, r = 0.64, g = 0.46, b = 0.34, sat_min = 0.08, sat_max = 0.20,
         female = { luma_min = 30, luma_max = 52, sat_target = 24, sat_min = 19, sat_max = 29 },
         male   = { luma_min = 25, luma_max = 47, sat_target = 22, sat_min = 17, sat_max = 27 },
     },
     brown_deep = { 
-        title = "7. Brown - Deep (Dark Bronze / South Indian Deeper)", 
+        title = "7. Brown - Deep", 
         baseline = 125.5, r = 0.50, g = 0.34, b = 0.24, sat_min = 0.07, sat_max = 0.18,
         female = { luma_min = 22, luma_max = 44, sat_target = 23, sat_min = 18, sat_max = 28 },
         male   = { luma_min = 18, luma_max = 39, sat_target = 20, sat_min = 15, sat_max = 25 },
     },
     deep_melanin = { 
-        title = "8. Deep Melanin / Ebony (African / Rich Espresso)", 
+        title = "8. Deep Melanin", 
         baseline = 123.0, r = 0.38, g = 0.25, b = 0.18, sat_min = 0.06, sat_max = 0.16,
         female = { luma_min = 16, luma_max = 36, sat_target = 22, sat_min = 17, sat_max = 27 },
         male   = { luma_min = 14, luma_max = 32, sat_target = 18, sat_min = 13, sat_max = 23 },
@@ -82,10 +82,10 @@ SkinMath.LIGHTING = {
 SkinMath.LIGHTING.flash_daylight = SkinMath.LIGHTING.neutral
 
 SkinMath.MOODS = {
-    neutral = { title = "Commercial Clean (0.0°)", offset = 0.0 },
-    filmic = { title = "Soft Filmic Rose (-2.0°)", offset = -2.0 },
-    fashion = { title = "Fashion Contrast (0.0°)", offset = 0.0 },
-    golden = { title = "Warm Golden Finish (+2.5°)", offset = 2.5 },
+    neutral = { title = "Clean (0.0°)", offset = 0.0 },
+    filmic = { title = "Filmic (-2.0°)", offset = -2.0 },
+    fashion = { title = "Editorial (0.0°)", offset = 0.0 },
+    golden = { title = "Golden (+2.5°)", offset = 2.5 },
 }
 
 SkinMath.TANS = {
@@ -116,7 +116,7 @@ end
 --- Automatically detect the closest matching complexion profile using biological Luma & Melanin indexing
 function SkinMath.detect_complexion(r, g, b, luma, angle)
     if not r or not g or not b then
-        return 'fair', "Auto: Fair European (Neutral Peach)"
+        return 'fair', "Auto: 2. Fair European"
     end
 
     local Y = (luma and (luma / 100.0)) or (0.2126 * r + 0.7152 * g + 0.0722 * b)
@@ -152,7 +152,7 @@ function SkinMath.detect_complexion(r, g, b, luma, angle)
 
     local comp_obj = SkinMath.COMPLEXIONS[best_key]
     local title = comp_obj and comp_obj.title or best_key
-    return best_key, "Auto-Detect: " .. title .. " (Per Photo)"
+    return best_key, "Auto: " .. title
 end
 
 --- Convert sRGB [0.0 - 1.0] to Rec.709 YCbCr
@@ -480,7 +480,7 @@ function SkinMath.evaluate_active_photo(current_temp, current_tint, current_oran
         eff_comp = detected_comp
     else
         local c_obj = SkinMath.COMPLEXIONS[eff_comp]
-        detected_comp_title = "Locked Target: " .. (c_obj and c_obj.title or eff_comp) .. " ✔"
+        detected_comp_title = "Locked: " .. (c_obj and c_obj.title or eff_comp) .. " ✔"
     end
 
     local target_angle, target_temp, target_tint, sat_min, sat_max, detected_desc, effective_lighting_key = 

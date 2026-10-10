@@ -97,7 +97,7 @@ function SkinScopeDialog.show(activeSettings)
         propertyTable.swatch_left_label = "◀ Current (Photo)"
         propertyTable.detected_complexion_str = ""
         propertyTable.detected_complexion_color = (savedComp ~= 'auto_detect') and LrColor(0.20, 0.78, 0.30) or LrColor(0.20, 0.65, 1.0)
-        propertyTable.look_info_str = "0.0° Neutral Baseline (Rec.709 I-Line)"
+        propertyTable.look_info_str = "0.0° Rec.709 Baseline"
         propertyTable.live_mode = savedLive
         
         -- Initialize photo name and settings immediately from caller
@@ -127,7 +127,7 @@ function SkinScopeDialog.show(activeSettings)
             else
                 status = " (No skin found)"
             end
-            return string.format("Preview: %d×%d px • %d skin pixels%s", width, height, count, status)
+            return string.format("%d×%d px • %d skin px%s", width, height, count, status)
         end
 
         local initInfo = activeSettings and activeSettings.sample_info
@@ -201,13 +201,13 @@ function SkinScopeDialog.show(activeSettings)
                 
                 local mood_key = propertyTable.mood or 'neutral'
                 if mood_key == 'filmic' then
-                    propertyTable.look_info_str = "-2.0° Rose Shift • Soft Muted Film"
+                    propertyTable.look_info_str = "-2.0° Soft Filmic Rose"
                 elseif mood_key == 'fashion' then
-                    propertyTable.look_info_str = "0.0° Clean • High-Contrast Editorial"
+                    propertyTable.look_info_str = "0.0° Contrast Editorial"
                 elseif mood_key == 'golden' then
-                    propertyTable.look_info_str = "+2.5° Golden Finish • Rich Warm Glow"
+                    propertyTable.look_info_str = "+2.5° Golden Warmth"
                 else
-                    propertyTable.look_info_str = "0.0° Neutral Baseline (Rec.709 I-Line)"
+                    propertyTable.look_info_str = "0.0° Rec.709 Baseline"
                 end
                 
                 -- Track photo baseline (prior) prior to plugin edits
@@ -779,6 +779,8 @@ function SkinScopeDialog.show(activeSettings)
                     font = "<system/bold>",
                     alignment = "center",
                     fill_horizontal = 1,
+                    width = 180,
+                    truncation = 'middle',
                 },
                 f:push_button {
                     title = "Next ▶",
@@ -791,7 +793,7 @@ function SkinScopeDialog.show(activeSettings)
             f:row {
                 fill_horizontal = 1,
                 f:push_button {
-                    title = "⚡ Apply Settings to Next Photo ▶",
+                    title = "⚡ Apply & Next ▶",
                     fill_horizontal = 1,
                     font = "<system/bold>",
                     tooltip = "Copy current skin tone (Orange HSL) and Luma exposure to the next photo and advance",
@@ -921,7 +923,7 @@ function SkinScopeDialog.show(activeSettings)
                 spacing = 6,
                 f:static_text { title = "HUD Mode:", width = 72, font = "<system/bold>" },
                 f:checkbox {
-                    title = "Live Push (Sliders update on profile select)",
+                    title = "Live Push",
                     value = LrView.bind('live_mode'),
                     font = "<system/bold>",
                     tooltip = "When checked, changing Complexion, Tan, or Mood immediately adjusts Lightroom sliders. When unchecked, values only change when clicking the Snap button.",
@@ -937,15 +939,15 @@ function SkinScopeDialog.show(activeSettings)
                     value = LrView.bind('complexion'),
                     fill_horizontal = 1,
                     items = {
-                        { title = "Auto-Detect (Per Photo)", value = 'auto_detect' },
-                        { title = "1. Porcelain (Ginger / Pink)", value = 'pale' },
-                        { title = "2. Fair European (Neutral Peach)", value = 'fair' },
-                        { title = "3. East Asian (Warm Ivory)", value = 'east_asian' },
-                        { title = "4. Olive / Tan (Mediterranean)", value = 'olive' },
-                        { title = "5. Brown - Light (Wheatish)", value = 'brown_light' },
-                        { title = "6. Brown - Medium (Bronze)", value = 'brown_medium' },
-                        { title = "7. Brown - Deep (Dark Bronze)", value = 'brown_deep' },
-                        { title = "8. Deep Melanin (Ebony)", value = 'deep_melanin' },
+                        { title = "Auto-Detect", value = 'auto_detect' },
+                        { title = "1. Porcelain", value = 'pale' },
+                        { title = "2. Fair European", value = 'fair' },
+                        { title = "3. East Asian", value = 'east_asian' },
+                        { title = "4. Olive / Tan", value = 'olive' },
+                        { title = "5. Brown - Light", value = 'brown_light' },
+                        { title = "6. Brown - Medium", value = 'brown_medium' },
+                        { title = "7. Brown - Deep", value = 'brown_deep' },
+                        { title = "8. Deep Melanin", value = 'deep_melanin' },
                     },
                 },
             },
@@ -1040,10 +1042,10 @@ function SkinScopeDialog.show(activeSettings)
                     value = LrView.bind('mood'),
                     fill_horizontal = 1,
                     items = {
-                        { title = "Commercial Clean (0.0°)", value = 'neutral' },
-                        { title = "Soft Filmic Rose (-2.0°)", value = 'filmic' },
-                        { title = "Fashion Contrast (0.0°)", value = 'fashion' },
-                        { title = "Golden Finish (+2.5°)", value = 'golden' },
+                        { title = "Clean (0.0°)", value = 'neutral' },
+                        { title = "Filmic (-2.0°)", value = 'filmic' },
+                        { title = "Editorial (0.0°)", value = 'fashion' },
+                        { title = "Golden (+2.5°)", value = 'golden' },
                     },
                 },
             },
@@ -1093,7 +1095,7 @@ function SkinScopeDialog.show(activeSettings)
 
                 -- Exposure / Luma Trio (Low, Mid, High)
                 f:static_text {
-                    title = "Snap Exposure (Luma Target):",
+                    title = "Snap Exposure (Luma):",
                     font = "<system/small>",
                     text_color = LrColor(0.30, 0.35, 0.40),
                     fill_horizontal = 1,
@@ -1183,7 +1185,7 @@ function SkinScopeDialog.show(activeSettings)
 
         LrDialogs.presentFloatingDialog(_PLUGIN, {
             title = "SkinScope",
-            save_frame = "skinscope_floating_hud_v29",
+            save_frame = "skinscope_floating_hud_v30",
             contents = contents,
             windowWillClose = function()
                 isRunning = false
