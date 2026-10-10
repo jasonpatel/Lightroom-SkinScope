@@ -18,6 +18,8 @@ local LrFunctionContext = import 'LrFunctionContext'
 local LrHttp = import 'LrHttp'
 local LrPathUtils = import 'LrPathUtils'
 local LrPrefs = import 'LrPrefs'
+local LrSelection = nil
+pcall(function() LrSelection = import 'LrSelection' end)
 local SkinMath = dofile(LrPathUtils.child(_PLUGIN.path, 'SkinMath.lua'))
 
 local SkinScopeDialog = {}
@@ -425,44 +427,128 @@ function SkinScopeDialog.show(activeSettings)
             end)
         end
 
+        -- Shared photo tracking identifier across navigation and background monitor
+        local lastPhotoId = nil
+        local initCatalog = LrApplication.activeCatalog()
+        local initP = initCatalog and initCatalog:getTargetPhoto()
+        if initP then lastPhotoId = initP.localIdentifier end
+
         -- Filmstrip navigation helper
+        local isNavigating = false
         local function selectAdjacentPhoto(delta)
+            if isNavigating then return end
+            isNavigating = true
+
             LrTasks.startAsyncTask(function()
                 local success, err = LrTasks.pcall(function()
                     local catalog = LrApplication.activeCatalog()
                     local targetPhoto = catalog:getTargetPhoto()
                     if not targetPhoto then return end
 
+                    local oldId = targetPhoto.localIdentifier
+
+                    -- Strategy 1: Explicit multi-photo selection (e.g. filmstrip subset)
+                    local targetPhotos = catalog:getTargetPhotos()
+                    if targetPhotos and #targetPhotos > 1 then
+                        local currentIndex = nil
+                        for i, p in ipairs(targetPhotos) do
+                            if p.localIdentifier == oldId then
+                                currentIndex = i
+                                break
+                            end
+                        end
+                        if currentIndex then
+                            local nextIndex = currentIndex + delta
+                            if nextIndex >= 1 and nextIndex <= #targetPhotos then
+                                local nextPhoto = targetPhotos[nextIndex]
+                                catalog:setSelectedPhotos(nextPhoto, targetPhotos)
+                                lastPhotoId = nextPhoto.localIdentifier
+                                refreshFromActivePhoto(nextPhoto)
+                                return
+                            else
+                                LrDialogs.showBezel(delta > 0 and "At end of selected photos." or "At start of selected photos.")
+                                return
+                            end
+                        end
+                    end
+
+                    -- Strategy 2: Native LrSelection navigation (filmstrip/collection/folder)
+                    local selectionMoved = false
+                    if LrSelection then
+                        local callOk = pcall(function()
+                            if delta > 0 and LrSelection.nextPhoto then
+                                LrSelection.nextPhoto()
+                                selectionMoved = true
+                            elseif delta < 0 and LrSelection.previousPhoto then
+                                LrSelection.previousPhoto()
+                                selectionMoved = true
+                            end
+                        end)
+                        if not callOk then selectionMoved = false end
+                    end
+
+                    -- Poll briefly for Lightroom to update its active target photo
+                    if selectionMoved then
+                        local newPhoto = nil
+                        for _ = 1, 8 do
+                            LrTasks.sleep(0.04)
+                            newPhoto = catalog:getTargetPhoto()
+                            if newPhoto and newPhoto.localIdentifier ~= oldId then
+                                break
+                            end
+                        end
+
+                        if newPhoto and newPhoto.localIdentifier ~= oldId then
+                            lastPhotoId = newPhoto.localIdentifier
+                            refreshFromActivePhoto(newPhoto)
+                            return
+                        end
+                    end
+
+                    -- Strategy 3: Active sources fallback (folder / collection)
                     local photos = nil
                     local sources = catalog:getActiveSources()
-                    if sources and #sources > 0 and sources[1].getPhotos then
-                        photos = sources[1]:getPhotos()
-                    end
-                    if not photos or #photos == 0 then
-                        photos = catalog:getTargetPhotos()
-                    end
-                    if not photos or #photos == 0 then return end
-
-                    local currentIndex = nil
-                    local targetId = targetPhoto.localIdentifier
-                    for i, p in ipairs(photos) do
-                        if p.localIdentifier == targetId then
-                            currentIndex = i
-                            break
+                    if sources and #sources > 0 then
+                        for _, src in ipairs(sources) do
+                            if src and src.getPhotos then
+                                local srcPhotos = src:getPhotos()
+                                if srcPhotos and #srcPhotos > 1 then
+                                    photos = srcPhotos
+                                    break
+                                end
+                            end
                         end
                     end
 
-                    if currentIndex then
-                        local nextIndex = currentIndex + delta
-                        if nextIndex >= 1 and nextIndex <= #photos then
-                            local nextPhoto = photos[nextIndex]
-                            catalog:setSelectedPhotos(nextPhoto, {})
-                            refreshFromActivePhoto(nextPhoto)
-                        else
-                            LrDialogs.showBezel(delta > 0 and "At end of photo list." or "At start of photo list.")
+                    if photos and #photos > 1 then
+                        local currentIndex = nil
+                        for i, p in ipairs(photos) do
+                            if p.localIdentifier == oldId then
+                                currentIndex = i
+                                break
+                            end
+                        end
+
+                        if currentIndex then
+                            local nextIndex = currentIndex + delta
+                            if nextIndex >= 1 and nextIndex <= #photos then
+                                local nextPhoto = photos[nextIndex]
+                                catalog:setSelectedPhotos(nextPhoto, {})
+                                lastPhotoId = nextPhoto.localIdentifier
+                                refreshFromActivePhoto(nextPhoto)
+                                return
+                            end
                         end
                     end
+
+                    -- If we reached here, photo did not advance
+                    LrDialogs.showBezel(delta > 0 and "At end of photo list." or "At start of photo list.")
                 end)
+
+                isNavigating = false
+                if not success and err then
+                    LrDialogs.showError("Navigation error: " .. tostring(err))
+                end
             end)
         end
 
@@ -470,7 +556,6 @@ function SkinScopeDialog.show(activeSettings)
         local isRunning = true
         LrTasks.startAsyncTask(function()
             local catalog = LrApplication.activeCatalog()
-            local lastPhotoId = nil
             local lastTemp = nil
             local lastTint = nil
             local lastOrange = nil
@@ -481,9 +566,6 @@ function SkinScopeDialog.show(activeSettings)
             local lastSampleZone = propertyTable.sample_zone
             local lastTan = propertyTable.tan
             local lastMood = propertyTable.mood
-
-            local initP = catalog:getTargetPhoto()
-            if initP then lastPhotoId = initP.localIdentifier end
 
             while isRunning do
                 LrTasks.pcall(function()
