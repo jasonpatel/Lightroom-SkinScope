@@ -152,7 +152,7 @@ function SkinMath.detect_complexion(r, g, b, luma, angle)
 
     local comp_obj = SkinMath.COMPLEXIONS[best_key]
     local title = comp_obj and comp_obj.title or best_key
-    return best_key, "Auto: " .. title
+    return best_key, "Auto-Detect: " .. title .. " (Per Photo)"
 end
 
 --- Convert sRGB [0.0 - 1.0] to Rec.709 YCbCr
@@ -480,7 +480,7 @@ function SkinMath.evaluate_active_photo(current_temp, current_tint, current_oran
         eff_comp = detected_comp
     else
         local c_obj = SkinMath.COMPLEXIONS[eff_comp]
-        detected_comp_title = "Manual: " .. (c_obj and c_obj.title or eff_comp)
+        detected_comp_title = "Locked Target: " .. (c_obj and c_obj.title or eff_comp) .. " ✔"
     end
 
     local target_angle, target_temp, target_tint, sat_min, sat_max, detected_desc, effective_lighting_key = 

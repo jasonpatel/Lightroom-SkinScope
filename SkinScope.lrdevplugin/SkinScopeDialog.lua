@@ -57,12 +57,13 @@ local function make_vectorscope_gauge(delta_angle, status)
 end
 
 function SkinScopeDialog.show(activeSettings)
-    if SkinScopeDialog.isOpen then
+    if _G.SkinScope_isOpen or SkinScopeDialog.isOpen then
         LrDialogs.showBezel("SkinScope is already open.")
         return
     end
 
     LrFunctionContext.callWithContext('SkinScopeDialog', function(context)
+        _G.SkinScope_isOpen = true
         SkinScopeDialog.isOpen = true
         local f = LrView.osFactory()
 
@@ -70,20 +71,34 @@ function SkinScopeDialog.show(activeSettings)
 
         -- Property table for reactive UI bindings
         local propertyTable = LrBinding.makePropertyTable(context)
-        propertyTable.complexion = pluginPrefs.defaultComplexion or 'auto_detect'
-        propertyTable.gender = pluginPrefs.defaultGender or 'female'
-        propertyTable.sample_zone = 'face'
+        local savedComp = pluginPrefs.savedComplexion or pluginPrefs.defaultComplexion or 'auto_detect'
+        local savedGender = pluginPrefs.savedGender or pluginPrefs.defaultGender or 'female'
+        local savedZone = pluginPrefs.savedZone or 'face'
+        local savedTan = pluginPrefs.savedTan or 'winter'
+        local savedMood = pluginPrefs.savedMood or 'neutral'
+        local savedLive = true
+        if pluginPrefs.savedLiveMode ~= nil then
+            savedLive = pluginPrefs.savedLiveMode
+        elseif pluginPrefs.defaultLiveMode ~= nil then
+            savedLive = pluginPrefs.defaultLiveMode
+        end
+
+        propertyTable.complexion = savedComp
+        propertyTable.gender = savedGender
+        propertyTable.sample_zone = savedZone
         propertyTable.face_sample = nil
         propertyTable.body_sample = nil
-        propertyTable.tan = 'winter'
-        propertyTable.mood = 'neutral'
+        propertyTable.tan = savedTan
+        propertyTable.mood = savedMood
         propertyTable.prior_r = nil
         propertyTable.prior_g = nil
         propertyTable.prior_b = nil
         propertyTable.has_prior_diff = false
         propertyTable.swatch_left_label = "◀ Current (Photo)"
         propertyTable.detected_complexion_str = ""
+        propertyTable.detected_complexion_color = (savedComp ~= 'auto_detect') and LrColor(0.20, 0.78, 0.30) or LrColor(0.20, 0.65, 1.0)
         propertyTable.look_info_str = "0.0° Neutral Baseline (Rec.709 I-Line)"
+        propertyTable.live_mode = savedLive
         
         -- Initialize photo name and settings immediately from caller
         propertyTable.photo_name = (activeSettings and activeSettings.file_name) or "Active Photo"
@@ -125,7 +140,6 @@ function SkinScopeDialog.show(activeSettings)
         propertyTable.exp_low_text = "Low EV"
         propertyTable.exp_mid_text = "Mid EV"
         propertyTable.exp_high_text = "High EV"
-        propertyTable.live_mode = (pluginPrefs.defaultLiveMode ~= nil) and pluginPrefs.defaultLiveMode or true
 
         local swatch_toggle = false
 
@@ -179,6 +193,11 @@ function SkinScopeDialog.show(activeSettings)
                 propertyTable.sat_color = (res.sat_status == "OPTIMAL") and LrColor(0.20, 0.78, 0.30) or LrColor(0.95, 0.68, 0.10)
                 
                 propertyTable.detected_complexion_str = res.detected_complexion_title or ""
+                if propertyTable.complexion and propertyTable.complexion ~= 'auto_detect' then
+                    propertyTable.detected_complexion_color = LrColor(0.20, 0.78, 0.30)
+                else
+                    propertyTable.detected_complexion_color = LrColor(0.20, 0.65, 1.00)
+                end
                 
                 local mood_key = propertyTable.mood or 'neutral'
                 if mood_key == 'filmic' then
@@ -342,6 +361,13 @@ function SkinScopeDialog.show(activeSettings)
         end
 
         local function onContextChanged(props, key, value)
+            if key == 'complexion' then pluginPrefs.savedComplexion = value
+            elseif key == 'gender' then pluginPrefs.savedGender = value
+            elseif key == 'sample_zone' then pluginPrefs.savedZone = value
+            elseif key == 'tan' then pluginPrefs.savedTan = value
+            elseif key == 'mood' then pluginPrefs.savedMood = value
+            end
+
             updateDiagnostics()
             if propertyTable.live_mode then
                 applyLiveCorrection("observer_" .. tostring(key))
@@ -355,16 +381,17 @@ function SkinScopeDialog.show(activeSettings)
         propertyTable:addObserver('mood', onContextChanged)
 
         propertyTable:addObserver('live_mode', function(props, key, value)
+            pluginPrefs.savedLiveMode = value
             if value == true then
                 applyLiveCorrection("live_mode_toggle")
-                LrDialogs.showBezel("Live Auto-Apply: ON\n(Immediate Photo Push)")
+                LrDialogs.showBezel("HUD Mode: Live Push ON\n(Immediate Photo Push)")
             else
-                LrDialogs.showBezel("On Press: ON\n(Manual Trigger)")
+                LrDialogs.showBezel("HUD Mode: Live Push OFF\n(Manual Trigger)")
             end
         end)
 
         -- Helper to read settings from a photo
-        local function refreshFromActivePhoto(photo)
+        local function refreshFromActivePhoto(photo, appliedSettings)
             if not photo then return end
             propertyTable.prior_r = nil
             propertyTable.prior_g = nil
@@ -382,22 +409,36 @@ function SkinScopeDialog.show(activeSettings)
                 local curExposure = nil
                 local curOrangeSat = nil
 
+                if appliedSettings then
+                    curOrange = appliedSettings.hue
+                    curOrangeSat = appliedSettings.sat
+                    curExposure = appliedSettings.exp
+                end
+
                 if LrApplicationView.getCurrentModuleName() == 'develop' then
                     curTemp = LrDevelopController.getValue('Temperature')
                     curTint = LrDevelopController.getValue('Tint')
-                    curOrange = LrDevelopController.getValue('HueAdjustmentOrange')
-                    curExposure = LrDevelopController.getValue('Exposure2012') or LrDevelopController.getValue('Exposure')
-                    curOrangeSat = LrDevelopController.getValue('SaturationAdjustmentOrange')
+                    if not appliedSettings then
+                        curOrange = LrDevelopController.getValue('HueAdjustmentOrange')
+                        curExposure = LrDevelopController.getValue('Exposure2012') or LrDevelopController.getValue('Exposure')
+                        curOrangeSat = LrDevelopController.getValue('SaturationAdjustmentOrange')
+                    end
                 end
 
                 if not curTemp or not curTint then
                     local dev = photo:getDevelopSettings() or {}
                     curTemp = curTemp or dev.Temperature or 5500
                     curTint = curTint or dev.Tint or 10
-                    curOrange = curOrange or dev.HueAdjustmentOrange or 0
-                    curExposure = curExposure or dev.Exposure2012 or dev.Exposure or 0
-                    curOrangeSat = curOrangeSat or dev.SaturationAdjustmentOrange or 0
+                    if not appliedSettings then
+                        curOrange = curOrange or dev.HueAdjustmentOrange or 0
+                        curExposure = curExposure or dev.Exposure2012 or dev.Exposure or 0
+                        curOrangeSat = curOrangeSat or dev.SaturationAdjustmentOrange or 0
+                    end
                 end
+
+                curOrange = curOrange or 0
+                curExposure = curExposure or 0
+                curOrangeSat = curOrangeSat or 0
 
                 local flashFired = 0
                 LrTasks.pcall(function() flashFired = photo:getRawMetadata('flashFired') or 0 end)
@@ -518,8 +559,9 @@ function SkinScopeDialog.show(activeSettings)
                                 lastPhotoId = nextPhoto.localIdentifier
                                 if shouldApply then
                                     applySettingsToPhoto(savedHue, savedSat, savedExp)
+                                    LrTasks.sleep(0.06)
                                 end
-                                refreshFromActivePhoto(nextPhoto)
+                                refreshFromActivePhoto(nextPhoto, shouldApply and { hue = savedHue, sat = savedSat, exp = savedExp } or nil)
                                 if shouldApply then
                                     LrDialogs.showBezel(string.format("Applied to Next Photo:\nOrange %+dH %+dS • Luma %+.2f EV", savedHue, savedSat, savedExp))
                                 end
@@ -561,8 +603,9 @@ function SkinScopeDialog.show(activeSettings)
                             lastPhotoId = newPhoto.localIdentifier
                             if shouldApply then
                                 applySettingsToPhoto(savedHue, savedSat, savedExp)
+                                LrTasks.sleep(0.06)
                             end
-                            refreshFromActivePhoto(newPhoto)
+                            refreshFromActivePhoto(newPhoto, shouldApply and { hue = savedHue, sat = savedSat, exp = savedExp } or nil)
                             if shouldApply then
                                 LrDialogs.showBezel(string.format("Applied to Next Photo:\nOrange %+dH %+dS • Luma %+.2f EV", savedHue, savedSat, savedExp))
                             end
@@ -602,8 +645,9 @@ function SkinScopeDialog.show(activeSettings)
                                 lastPhotoId = nextPhoto.localIdentifier
                                 if shouldApply then
                                     applySettingsToPhoto(savedHue, savedSat, savedExp)
+                                    LrTasks.sleep(0.06)
                                 end
-                                refreshFromActivePhoto(nextPhoto)
+                                refreshFromActivePhoto(nextPhoto, shouldApply and { hue = savedHue, sat = savedSat, exp = savedExp } or nil)
                                 if shouldApply then
                                     LrDialogs.showBezel(string.format("Applied to Next Photo:\nOrange %+dH %+dS • Luma %+.2f EV", savedHue, savedSat, savedExp))
                                 end
@@ -893,7 +937,7 @@ function SkinScopeDialog.show(activeSettings)
                     value = LrView.bind('complexion'),
                     fill_horizontal = 1,
                     items = {
-                        { title = "Auto-Detect", value = 'auto_detect' },
+                        { title = "Auto-Detect (Per Photo)", value = 'auto_detect' },
                         { title = "1. Porcelain (Ginger / Pink)", value = 'pale' },
                         { title = "2. Fair European (Neutral Peach)", value = 'fair' },
                         { title = "3. East Asian (Warm Ivory)", value = 'east_asian' },
@@ -914,7 +958,7 @@ function SkinScopeDialog.show(activeSettings)
                     title = LrView.bind('detected_complexion_str'),
                     fill_horizontal = 1,
                     font = "<system/small>",
-                    text_color = LrColor(0.20, 0.65, 1.0),
+                    text_color = LrView.bind('detected_complexion_color'),
                 },
             },
 
@@ -1144,6 +1188,7 @@ function SkinScopeDialog.show(activeSettings)
             windowWillClose = function()
                 isRunning = false
                 SkinScopeDialog.isOpen = false
+                _G.SkinScope_isOpen = false
             end,
         })
     end)
