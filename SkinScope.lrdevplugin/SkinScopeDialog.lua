@@ -109,7 +109,6 @@ function SkinScopeDialog.show(activeSettings)
         propertyTable.exp_mid_text = "Mid EV"
         propertyTable.exp_high_text = "High EV"
         propertyTable.live_mode = (pluginPrefs.defaultLiveMode ~= nil) and pluginPrefs.defaultLiveMode or true
-        propertyTable.auto_apply_on_next = (pluginPrefs.autoApplyOnNext == true) or false
 
         local swatch_toggle = false
 
@@ -347,15 +346,6 @@ function SkinScopeDialog.show(activeSettings)
             end
         end)
 
-        propertyTable:addObserver('auto_apply_on_next', function(props, key, value)
-            pluginPrefs.autoApplyOnNext = (value == true)
-            if value == true then
-                LrDialogs.showBezel("Auto-Apply on Next: ON\n(Will copy Orange HSL when advancing)")
-            else
-                LrDialogs.showBezel("Auto-Apply on Next: OFF")
-            end
-        end)
-
         -- Helper to read settings from a photo
         local function refreshFromActivePhoto(photo)
             if not photo then return end
@@ -443,8 +433,8 @@ function SkinScopeDialog.show(activeSettings)
         local initP = initCatalog and initCatalog:getTargetPhoto()
         if initP then lastPhotoId = initP.localIdentifier end
 
-        -- Helper to apply skin tone settings to newly selected photo if requested
-        local function applySettingsToPhoto(targetHue, targetSat)
+        -- Helper to apply skin tone & luma settings to newly selected photo if requested
+        local function applySettingsToPhoto(targetHue, targetSat, targetExp)
             if LrApplicationView.getCurrentModuleName() ~= 'develop' then
                 LrApplicationView.switchToModule('develop')
                 LrTasks.sleep(0.05)
@@ -456,8 +446,17 @@ function SkinScopeDialog.show(activeSettings)
             pcall(function()
                 LrDevelopController.setValue('SaturationAdjustmentOrange', targetSat)
             end)
+            LrTasks.sleep(0.03)
+            pcall(function()
+                if LrDevelopController.getValue('Exposure2012') ~= nil then
+                    LrDevelopController.setValue('Exposure2012', targetExp)
+                else
+                    LrDevelopController.setValue('Exposure', targetExp)
+                end
+            end)
             propertyTable.current_orange_hue = targetHue
             propertyTable.current_orange_sat = targetSat
+            propertyTable.current_exposure = targetExp
         end
 
         -- Filmstrip navigation helper
@@ -466,11 +465,12 @@ function SkinScopeDialog.show(activeSettings)
             if isNavigating then return end
             isNavigating = true
 
-            local shouldApply = (forceApply == true) or (delta > 0 and propertyTable.auto_apply_on_next)
+            local shouldApply = (forceApply == true)
 
-            -- Capture current skin tone settings before leaving this photo
+            -- Capture current skin tone and luma exposure settings before leaving this photo
             local savedHue = propertyTable.current_orange_hue or 0
             local savedSat = propertyTable.current_orange_sat or 0
+            local savedExp = propertyTable.current_exposure or 0
 
             LrTasks.startAsyncTask(function()
                 local success, err = LrTasks.pcall(function()
@@ -497,11 +497,11 @@ function SkinScopeDialog.show(activeSettings)
                                 catalog:setSelectedPhotos(nextPhoto, targetPhotos)
                                 lastPhotoId = nextPhoto.localIdentifier
                                 if shouldApply then
-                                    applySettingsToPhoto(savedHue, savedSat)
+                                    applySettingsToPhoto(savedHue, savedSat, savedExp)
                                 end
                                 refreshFromActivePhoto(nextPhoto)
                                 if shouldApply then
-                                    LrDialogs.showBezel(string.format("Applied to Next Photo:\nOrange Hue %+d • Sat %+d", savedHue, savedSat))
+                                    LrDialogs.showBezel(string.format("Applied to Next Photo:\nOrange %+dH %+dS • Luma %+.2f EV", savedHue, savedSat, savedExp))
                                 end
                                 return
                             else
@@ -540,11 +540,11 @@ function SkinScopeDialog.show(activeSettings)
                         if newPhoto and newPhoto.localIdentifier ~= oldId then
                             lastPhotoId = newPhoto.localIdentifier
                             if shouldApply then
-                                applySettingsToPhoto(savedHue, savedSat)
+                                applySettingsToPhoto(savedHue, savedSat, savedExp)
                             end
                             refreshFromActivePhoto(newPhoto)
                             if shouldApply then
-                                LrDialogs.showBezel(string.format("Applied to Next Photo:\nOrange Hue %+d • Sat %+d", savedHue, savedSat))
+                                LrDialogs.showBezel(string.format("Applied to Next Photo:\nOrange %+dH %+dS • Luma %+.2f EV", savedHue, savedSat, savedExp))
                             end
                             return
                         end
@@ -581,11 +581,11 @@ function SkinScopeDialog.show(activeSettings)
                                 catalog:setSelectedPhotos(nextPhoto, {})
                                 lastPhotoId = nextPhoto.localIdentifier
                                 if shouldApply then
-                                    applySettingsToPhoto(savedHue, savedSat)
+                                    applySettingsToPhoto(savedHue, savedSat, savedExp)
                                 end
                                 refreshFromActivePhoto(nextPhoto)
                                 if shouldApply then
-                                    LrDialogs.showBezel(string.format("Applied to Next Photo:\nOrange Hue %+d • Sat %+d", savedHue, savedSat))
+                                    LrDialogs.showBezel(string.format("Applied to Next Photo:\nOrange %+dH %+dS • Luma %+.2f EV", savedHue, savedSat, savedExp))
                                 end
                                 return
                             end
@@ -723,20 +723,14 @@ function SkinScopeDialog.show(activeSettings)
                 },
             },
 
-            -- Filmstrip Quick-Apply Sub-Bar
+            -- Filmstrip Apply & Advance Action
             f:row {
                 fill_horizontal = 1,
-                spacing = 4,
-                f:checkbox {
-                    title = "Auto-Apply on Next",
-                    value = LrView.bind('auto_apply_on_next'),
-                    tooltip = "When checked, pressing Next ▶ automatically copies current Orange HSL skin settings to the next photo",
-                },
                 f:push_button {
-                    title = "⚡ Apply & Next ▶",
+                    title = "⚡ Apply Settings to Next Photo ▶",
                     fill_horizontal = 1,
                     font = "<system/bold>",
-                    tooltip = "Copy current skin tone settings (Orange Hue & Saturation) to next photo and advance",
+                    tooltip = "Copy current skin tone (Orange HSL) and Luma exposure to the next photo and advance",
                     action = function() selectAdjacentPhoto(1, true) end,
                 },
             },
@@ -856,15 +850,16 @@ function SkinScopeDialog.show(activeSettings)
 
             f:separator { fill_horizontal = 1 },
 
-            -- Live vs On-Press Mode Toggle (Checkbox)
+            -- Live vs On-Press Mode Toggle (Controls whether HUD profile changes push to sliders live)
             f:row {
                 fill_horizontal = 1,
                 spacing = 6,
-                f:static_text { title = "Sync:", width = 72, font = "<system/bold>" },
+                f:static_text { title = "HUD Mode:", width = 72, font = "<system/bold>" },
                 f:checkbox {
-                    title = "Live Auto-Sync",
+                    title = "Live Push (Sliders update on profile select)",
                     value = LrView.bind('live_mode'),
                     font = "<system/bold>",
+                    tooltip = "When checked, changing Complexion, Tan, or Mood immediately adjusts Lightroom sliders. When unchecked, values only change when clicking the Snap button.",
                 },
             },
 

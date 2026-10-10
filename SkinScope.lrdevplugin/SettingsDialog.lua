@@ -51,7 +51,6 @@ LrTasks.startAsyncTask(function()
             props.defaultGender = pluginPrefs.defaultGender or "female"
             props.thumbnailSize = tostring(pluginPrefs.thumbnailSize or 1024)
             props.defaultLiveMode = (pluginPrefs.defaultLiveMode ~= nil) and pluginPrefs.defaultLiveMode or true
-            props.autoApplyOnNext = (pluginPrefs.autoApplyOnNext ~= nil) and pluginPrefs.autoApplyOnNext or false
 
             local contents = f:column {
                 bind_to_object = props,
@@ -109,25 +108,13 @@ LrTasks.startAsyncTask(function()
 
                 f:row {
                     f:static_text {
-                        title = "Live Auto-Sync on Launch:",
+                        title = "Live Push on Launch:",
                         alignment = "right",
                         width = LrView.share 'pref_lbl',
                     },
                     f:checkbox {
-                        title = "Automatically sync Develop sliders when browsing profiles",
+                        title = "Automatically adjust Develop sliders when changing profiles",
                         value = LrView.bind('defaultLiveMode'),
-                    },
-                },
-
-                f:row {
-                    f:static_text {
-                        title = "Auto-Apply on Next:",
-                        alignment = "right",
-                        width = LrView.share 'pref_lbl',
-                    },
-                    f:checkbox {
-                        title = "Copy Orange HSL skin settings when pressing Next ▶",
-                        value = LrView.bind('autoApplyOnNext'),
                     },
                 },
 
@@ -151,7 +138,6 @@ LrTasks.startAsyncTask(function()
                 pluginPrefs.defaultGender = props.defaultGender
                 pluginPrefs.thumbnailSize = tonumber(props.thumbnailSize) or 1024
                 pluginPrefs.defaultLiveMode = props.defaultLiveMode
-                pluginPrefs.autoApplyOnNext = props.autoApplyOnNext
                 LrDialogs.showBezel("SkinScope Settings Saved")
             end
         end)
