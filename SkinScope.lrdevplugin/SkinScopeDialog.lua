@@ -109,6 +109,7 @@ function SkinScopeDialog.show(activeSettings)
         propertyTable.exp_mid_text = "Mid EV"
         propertyTable.exp_high_text = "High EV"
         propertyTable.live_mode = (pluginPrefs.defaultLiveMode ~= nil) and pluginPrefs.defaultLiveMode or true
+        propertyTable.auto_apply_on_next = (pluginPrefs.autoApplyOnNext == true) or false
 
         local swatch_toggle = false
 
@@ -346,6 +347,15 @@ function SkinScopeDialog.show(activeSettings)
             end
         end)
 
+        propertyTable:addObserver('auto_apply_on_next', function(props, key, value)
+            pluginPrefs.autoApplyOnNext = (value == true)
+            if value == true then
+                LrDialogs.showBezel("Auto-Apply on Next: ON\n(Will copy Orange HSL when advancing)")
+            else
+                LrDialogs.showBezel("Auto-Apply on Next: OFF")
+            end
+        end)
+
         -- Helper to read settings from a photo
         local function refreshFromActivePhoto(photo)
             if not photo then return end
@@ -433,11 +443,34 @@ function SkinScopeDialog.show(activeSettings)
         local initP = initCatalog and initCatalog:getTargetPhoto()
         if initP then lastPhotoId = initP.localIdentifier end
 
+        -- Helper to apply skin tone settings to newly selected photo if requested
+        local function applySettingsToPhoto(targetHue, targetSat)
+            if LrApplicationView.getCurrentModuleName() ~= 'develop' then
+                LrApplicationView.switchToModule('develop')
+                LrTasks.sleep(0.05)
+            end
+            pcall(function()
+                LrDevelopController.setValue('HueAdjustmentOrange', targetHue)
+            end)
+            LrTasks.sleep(0.03)
+            pcall(function()
+                LrDevelopController.setValue('SaturationAdjustmentOrange', targetSat)
+            end)
+            propertyTable.current_orange_hue = targetHue
+            propertyTable.current_orange_sat = targetSat
+        end
+
         -- Filmstrip navigation helper
         local isNavigating = false
-        local function selectAdjacentPhoto(delta)
+        local function selectAdjacentPhoto(delta, forceApply)
             if isNavigating then return end
             isNavigating = true
+
+            local shouldApply = (forceApply == true) or (delta > 0 and propertyTable.auto_apply_on_next)
+
+            -- Capture current skin tone settings before leaving this photo
+            local savedHue = propertyTable.current_orange_hue or 0
+            local savedSat = propertyTable.current_orange_sat or 0
 
             LrTasks.startAsyncTask(function()
                 local success, err = LrTasks.pcall(function()
@@ -463,7 +496,13 @@ function SkinScopeDialog.show(activeSettings)
                                 local nextPhoto = targetPhotos[nextIndex]
                                 catalog:setSelectedPhotos(nextPhoto, targetPhotos)
                                 lastPhotoId = nextPhoto.localIdentifier
+                                if shouldApply then
+                                    applySettingsToPhoto(savedHue, savedSat)
+                                end
                                 refreshFromActivePhoto(nextPhoto)
+                                if shouldApply then
+                                    LrDialogs.showBezel(string.format("Applied to Next Photo:\nOrange Hue %+d • Sat %+d", savedHue, savedSat))
+                                end
                                 return
                             else
                                 LrDialogs.showBezel(delta > 0 and "At end of selected photos." or "At start of selected photos.")
@@ -500,7 +539,13 @@ function SkinScopeDialog.show(activeSettings)
 
                         if newPhoto and newPhoto.localIdentifier ~= oldId then
                             lastPhotoId = newPhoto.localIdentifier
+                            if shouldApply then
+                                applySettingsToPhoto(savedHue, savedSat)
+                            end
                             refreshFromActivePhoto(newPhoto)
+                            if shouldApply then
+                                LrDialogs.showBezel(string.format("Applied to Next Photo:\nOrange Hue %+d • Sat %+d", savedHue, savedSat))
+                            end
                             return
                         end
                     end
@@ -535,7 +580,13 @@ function SkinScopeDialog.show(activeSettings)
                                 local nextPhoto = photos[nextIndex]
                                 catalog:setSelectedPhotos(nextPhoto, {})
                                 lastPhotoId = nextPhoto.localIdentifier
+                                if shouldApply then
+                                    applySettingsToPhoto(savedHue, savedSat)
+                                end
                                 refreshFromActivePhoto(nextPhoto)
+                                if shouldApply then
+                                    LrDialogs.showBezel(string.format("Applied to Next Photo:\nOrange Hue %+d • Sat %+d", savedHue, savedSat))
+                                end
                                 return
                             end
                         end
@@ -656,7 +707,8 @@ function SkinScopeDialog.show(activeSettings)
                 spacing = 4,
                 f:push_button {
                     title = "◀ Prev",
-                    action = function() selectAdjacentPhoto(-1) end,
+                    tooltip = "Go to previous photo (Ctrl+Left)",
+                    action = function() selectAdjacentPhoto(-1, false) end,
                 },
                 f:static_text {
                     title = LrView.bind('photo_name'),
@@ -666,7 +718,26 @@ function SkinScopeDialog.show(activeSettings)
                 },
                 f:push_button {
                     title = "Next ▶",
-                    action = function() selectAdjacentPhoto(1) end,
+                    tooltip = "Advance to next photo without altering settings (Ctrl+Right)",
+                    action = function() selectAdjacentPhoto(1, false) end,
+                },
+            },
+
+            -- Filmstrip Quick-Apply Sub-Bar
+            f:row {
+                fill_horizontal = 1,
+                spacing = 4,
+                f:checkbox {
+                    title = "Auto-Apply on Next",
+                    value = LrView.bind('auto_apply_on_next'),
+                    tooltip = "When checked, pressing Next ▶ automatically copies current Orange HSL skin settings to the next photo",
+                },
+                f:push_button {
+                    title = "⚡ Apply & Next ▶",
+                    fill_horizontal = 1,
+                    font = "<system/bold>",
+                    tooltip = "Copy current skin tone settings (Orange Hue & Saturation) to next photo and advance",
+                    action = function() selectAdjacentPhoto(1, true) end,
                 },
             },
 

@@ -51,6 +51,7 @@ LrTasks.startAsyncTask(function()
             props.defaultGender = pluginPrefs.defaultGender or "female"
             props.thumbnailSize = tostring(pluginPrefs.thumbnailSize or 1024)
             props.defaultLiveMode = (pluginPrefs.defaultLiveMode ~= nil) and pluginPrefs.defaultLiveMode or true
+            props.autoApplyOnNext = (pluginPrefs.autoApplyOnNext ~= nil) and pluginPrefs.autoApplyOnNext or false
 
             local contents = f:column {
                 bind_to_object = props,
@@ -118,6 +119,18 @@ LrTasks.startAsyncTask(function()
                     },
                 },
 
+                f:row {
+                    f:static_text {
+                        title = "Auto-Apply on Next:",
+                        alignment = "right",
+                        width = LrView.share 'pref_lbl',
+                    },
+                    f:checkbox {
+                        title = "Copy Orange HSL skin settings when pressing Next ▶",
+                        value = LrView.bind('autoApplyOnNext'),
+                    },
+                },
+
                 f:separator { fill_horizontal = 1 },
                 f:static_text {
                     title = "Preferences persist across Lightroom sessions in your catalog preferences.",
@@ -138,6 +151,7 @@ LrTasks.startAsyncTask(function()
                 pluginPrefs.defaultGender = props.defaultGender
                 pluginPrefs.thumbnailSize = tonumber(props.thumbnailSize) or 1024
                 pluginPrefs.defaultLiveMode = props.defaultLiveMode
+                pluginPrefs.autoApplyOnNext = props.autoApplyOnNext
                 LrDialogs.showBezel("SkinScope Settings Saved")
             end
         end)
