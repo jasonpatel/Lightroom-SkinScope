@@ -97,10 +97,27 @@ function SkinScopeDialog.show(activeSettings)
         propertyTable.profile_status_str = "Adobe Color (Optimal ✔)"
         propertyTable.profile_status_color = LrColor(0.20, 0.78, 0.30)
 
+        local function format_sample_info_str(width, height, count)
+            if not width or not height then
+                return "Preview: Standard"
+            end
+            count = count or 0
+            local status = ""
+            if count >= 1000 then
+                status = " (Optimal ✔)"
+            elseif count >= 200 then
+                status = " (Sufficient ✔)"
+            elseif count > 0 then
+                status = " (Low count ⚠)"
+            else
+                status = " (No skin found)"
+            end
+            return string.format("Preview: %d×%d px • %d skin pixels%s", width, height, count, status)
+        end
+
         local initInfo = activeSettings and activeSettings.sample_info
         if initInfo and initInfo.width then
-            propertyTable.sample_info_str = string.format("Preview: %d×%d px • %d skin pixels",
-                initInfo.width, initInfo.height, initInfo.count or 0)
+            propertyTable.sample_info_str = format_sample_info_str(initInfo.width, initInfo.height, initInfo.count)
         else
             propertyTable.sample_info_str = "Preview: Standard"
         end
@@ -418,8 +435,11 @@ function SkinScopeDialog.show(activeSettings)
                     propertyTable.face_sample = samples.face_sample
                     propertyTable.body_sample = samples.body_sample
                     if samples.sample_info and samples.sample_info.width then
-                        propertyTable.sample_info_str = string.format("Preview: %d×%d px • %d skin pixels",
-                            samples.sample_info.width, samples.sample_info.height, samples.sample_info.count or 0)
+                        propertyTable.sample_info_str = format_sample_info_str(
+                            samples.sample_info.width,
+                            samples.sample_info.height,
+                            samples.sample_info.count
+                        )
                     end
                 end
 
@@ -741,6 +761,7 @@ function SkinScopeDialog.show(activeSettings)
                 alignment = "center",
                 text_color = LrColor(0.45, 0.50, 0.55),
                 fill_horizontal = 1,
+                tooltip = "SkinScope requires at least 200 skin pixels for statistical accuracy. 1,000+ pixels provides cinema-grade vectorscope calibration certainty.",
             },
 
             f:separator { fill_horizontal = 1 },
