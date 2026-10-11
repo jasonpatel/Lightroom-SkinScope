@@ -1,38 +1,37 @@
 # SkinScope for Lightroom Classic
 
-> **Objective Vectorscope Skin Tone Calibration & Rapid Culling for Lightroom Classic**  
-> Engineered by **Jason Patel** to give portrait, wedding, and event photographers cinema-grade skin tone certainty in seconds—eliminating eye fatigue and empowering color vision deficient (CVD) retouchers with mathematical precision.
+> A Lightroom Classic plugin by **Jason Patel** that brings vectorscope skin tone grading and fast filmstrip culling into a simple floating HUD.
 
 ---
 
 <p align="center">
-  <img src="assets/skinscope-hud-v2.png" alt="SkinScope Real-time Floating HUD" width="380" />
+  <img src="assets/skinscope-hud-v2.png" alt="SkinScope Floating HUD" width="380" />
   <br>
-  <em>SkinScope Real-time Floating HUD: Vectorscope I-Line alignment, Van Hurkman complexions, and continuous Before/After swatch.</em>
+  <em>SkinScope HUD: Vectorscope I-Line indicator, skin complexion presets, and Before/After split swatch.</em>
 </p>
 
 ---
 
-## 📸 Overview
-Judging skin tones purely by eye is slow, subjective, and easily misled by eye fatigue, uncalibrated room lighting, and color vision discrepancies. 
+## 📸 Why I Built This
 
-In high-end film and television post-production (e.g. DaVinci Resolve), professional colorists don't guess skin tones—they rely on the **Vectorscope Skin Tone Indicator (I-Line)**.
+Judging skin tones by eye gets tiring fast. After an hour of editing, your eyes adapt to whatever tint is on the screen, and what looked right at 9 PM often looks greenish or overly magenta the next morning. If you have any color vision deficiency (like red-green weakness), it's even harder.
 
-**SkinScope** ports this cinema-standard calibration methodology and **Alexis Van Hurkman's *Color Correction Handbook*** skin metrics directly into Adobe Lightroom Classic. Featuring a compact 344px floating HUD, persistent in-memory analysis, and **1-click intent-based filmstrip culling**, SkinScope delivers mathematically perfect, consistent skin tones across entire shoots in record time.
+Video editors don't rely on their eyes for skin tones—they use the **Vectorscope I-Line** in DaVinci Resolve. 
+
+SkinScope brings that same reference line into Lightroom Classic. It samples the skin in your photo, tells you if it's leaning too magenta or too yellow, and lets you snap it into place with one click. When working through a set, you can grade one photo and move to the next while keeping the same look automatically.
 
 ---
 
-## 🚀 Key Features
+## 🚀 What It Does
 
-* **Universal I-Line Alignment**: Calculates vectorscope hue angle ($\theta$) in Rec.709 $YC_bC_r$ space and alerts you to magenta, yellow/green, or extreme white balance casts.
-* **Alexis Van Hurkman Standards**: 8 plain-English complexion profiles (Porcelain, Fair, East Asian, Olive, Brown Light, Brown Medium, Brown Deep, Deep Melanin) with calibrated Luma and Saturation targets.
-* **Exposure-Invariant Saturation**: Proprietary luma-normalized saturation formula eliminates false oversaturation warnings when adjusting exposure.
-* **3-Way Exposure Snapping**: Dedicated Low, Mid, and High target buttons calculate exact logarithmic $\Delta\text{EV}$ photographic exposure shifts in one click.
-* **⚡ Intent-Based Filmstrip Culling (`⚡ Apply & Next ▶`)**: Carries forward your chosen grading intent (complexion profile, look, tan, and high/mid/low exposure tier) and automatically calculates and applies tailored corrections for each photo in the sequence.
-* **⚡ Native Filmstrip Responsiveness**: Instantaneous photo switching, persistent background sampling daemon, and debounced pixel analysis for zero lag during rapid culling.
-* **🔒 Complexion Lock**: Protects your chosen skin tone target from accidental mouse wheel or trackpad scrolling in Windows.
-* **Seamless Split Swatch**: Borderless 344px Before/After swatch dynamically rendered in pure Lua.
-* **Direct RAW Sampling**: Analyzes 2,000–5,000 skin pixels from camera previews in $< 200\text{ms}$.
+* **Vectorscope Skin Line (I-Line)**: Shows exactly where skin tones land and flags magenta or yellow/green casts.
+* **8 Complexion Profiles**: From porcelain to deep melanin, based on Alexis Van Hurkman's reference standards.
+* **Quick Tone Snapping**: Click to align Orange HSL directly to the skin line without affecting the rest of the image.
+* **3 Exposure Options**: Pick Low, Mid, or High luminance depending on the mood of the shot.
+* **Apply & Next (`⚡ Apply Next ▶`)**: Locks in your target look and adjusts each photo in a sequence to match as you click through.
+* **Fast Navigation**: Works directly with Lightroom's develop cache and debounced sampling so cycling photos doesn't stall.
+* **Complexion Lock (`🔒`)**: Locks your selected profile so accidental mouse scrolls don't change it.
+* **Before / After Swatch**: Live split swatch showing the original photo next to your current adjustment and target.
 
 ---
 
