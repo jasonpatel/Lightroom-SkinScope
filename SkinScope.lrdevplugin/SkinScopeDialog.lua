@@ -81,7 +81,12 @@ function SkinScopeDialog.show(activeSettings)
             savedLive = pluginPrefs.defaultLiveMode
         end
 
+        local savedCompLock = (pluginPrefs.savedCompLock == true)
+
         propertyTable.complexion = savedComp
+        propertyTable.complexion_locked = savedCompLock
+        propertyTable.complexion_unlocked = not savedCompLock
+        propertyTable.lock_button_title = savedCompLock and "🔒" or "🔓"
         propertyTable.gender = savedGender
         propertyTable.sample_zone = savedZone
         propertyTable.face_sample = nil
@@ -963,10 +968,11 @@ function SkinScopeDialog.show(activeSettings)
             -- Context & Calibration Profile Controls
             f:row {
                 fill_horizontal = 1,
-                spacing = 6,
+                spacing = 4,
                 f:static_text { title = "Complexion:", width = 72, font = "<system/bold>" },
                 f:popup_menu {
                     value = LrView.bind('complexion'),
+                    enabled = LrView.bind('complexion_unlocked'),
                     fill_horizontal = 1,
                     items = {
                         { title = "Auto-Detect", value = 'auto_detect' },
@@ -979,6 +985,28 @@ function SkinScopeDialog.show(activeSettings)
                         { title = "7. Brown - Deep", value = 'brown_deep' },
                         { title = "8. Deep Melanin", value = 'deep_melanin' },
                     },
+                },
+                f:push_button {
+                    title = LrView.bind('lock_button_title'),
+                    width = 28,
+                    action = function()
+                        local newLocked = not propertyTable.complexion_locked
+                        propertyTable.complexion_locked = newLocked
+                        propertyTable.complexion_unlocked = not newLocked
+                        propertyTable.lock_button_title = newLocked and "🔒" or "🔓"
+                        pluginPrefs.savedCompLock = newLocked
+                        if newLocked then
+                            local cName = "Auto-Detect"
+                            if propertyTable.complexion ~= 'auto_detect' and SkinMath.COMPLEXIONS[propertyTable.complexion] then
+                                cName = SkinMath.COMPLEXIONS[propertyTable.complexion].title
+                            elseif propertyTable.res and propertyTable.res.detected_complexion_title then
+                                cName = propertyTable.res.detected_complexion_title
+                            end
+                            LrDialogs.showBezel(string.format("Complexion Locked 🔒\n(%s)", cName))
+                        else
+                            LrDialogs.showBezel("Complexion Unlocked 🔓\n(Dropdown active)")
+                        end
+                    end,
                 },
             },
 
