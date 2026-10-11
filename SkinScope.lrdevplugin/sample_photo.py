@@ -1,14 +1,15 @@
 #!/usr/bin/env python
 # sample_photo.py - Real pixel skin tone sampler for SkinScope
-import os, sys, json, math
+# Supports both one-shot CLI execution and persistent daemon mode.
+import os, sys, json, math, socket, time
 
-def sample_photo(photo_path, out_json):
+def analyze_image(photo_path):
     try:
-        try:
-            from PIL import Image
-        except ImportError:
-            raise RuntimeError("Pillow (PIL) is not installed. Run 'pip install pillow' to enable raw pixel sampling.")
+        from PIL import Image
+    except ImportError:
+        return {"success": False, "error": "Pillow (PIL) is not installed. Run 'pip install pillow' to enable raw pixel sampling."}
 
+    try:
         ext = os.path.splitext(photo_path)[1].lower()
         if ext in ['.jpg', '.jpeg', '.png', '.tif', '.tiff', '.bmp']:
             im = Image.open(photo_path)
@@ -29,16 +30,17 @@ def sample_photo(photo_path, out_json):
                 else:
                     im = Image.open(BytesIO(data[jpg_start:]))
             else:
-                raise ValueError("No embedded preview JPEG found in RAW file")
-                
+                return {"success": False, "error": "No embedded preview JPEG found in RAW file"}
+
         w, h = im.size
         candidates = []
         step = max(1, min(w, h) // 150)
-        
+        pix = im.load()
+
         # Scan image area (excluding outer 5% frame edges)
         for y in range(h // 20, (h * 19) // 20, step):
             for x in range(w // 20, (w * 19) // 20, step):
-                r, g, b = im.getpixel((x, y))[:3]
+                r, g, b = pix[x, y][:3]
                 # Living skin baseline: Red dominates, Blue is lowest
                 if r > g and g > b and r > 85 and b > 45 and (r - b) > 12:
                     # Biological hair & dark wood rejection:
@@ -59,84 +61,173 @@ def sample_photo(photo_path, out_json):
                                 'deg': deg, 'sat': sat,
                                 'Y': Y * 100.0
                             })
-                        
+
         if not candidates:
-            res = {"success": False, "error": "No skin pixels detected"}
-        else:
-            # Vertical distribution analysis to separate Face/Head from Torso/Body
-            y_bins = [0] * 10
-            for p in candidates:
-                idx = min(9, int((p['y'] / float(h)) * 10))
-                y_bins[idx] += 1
-            
-            # Find clothing/neck valley separating upper head/face from lower body
-            split_y = h * 0.45
-            for i in range(2, 7):
-                if y_bins[i] < y_bins[i-1] and y_bins[i] < y_bins[i+1] and y_bins[i] < (len(candidates) * 0.05):
-                    split_y = (i + 0.5) * (h / 10.0)
-                    break
-            
-            face_candidates = [p for p in candidates if p['y'] < split_y]
-            body_candidates = [p for p in candidates if p['y'] >= split_y]
-            
-            # If no upper skin exists (e.g. tight crop on torso), fallback to all candidates
-            if not face_candidates:
-                face_candidates = list(candidates)
-            if not body_candidates:
-                body_candidates = list(candidates)
-                
-            # Filter shadow falloff on face (focus on key-lit midtones & highlights: upper 70% luma)
-            if len(face_candidates) > 20:
-                face_candidates.sort(key=lambda p: p['Y'])
-                face_candidates = face_candidates[int(len(face_candidates) * 0.30):]
-                
-            def aggregate(px_list):
-                if not px_list: return None
-                avg_r = sum(p['r'] for p in px_list) / float(len(px_list))
-                avg_g = sum(p['g'] for p in px_list) / float(len(px_list))
-                avg_b = sum(p['b'] for p in px_list) / float(len(px_list))
-                avg_deg = sum(p['deg'] for p in px_list) / float(len(px_list))
-                avg_sat = sum(p['sat'] for p in px_list) / float(len(px_list))
-                avg_luma = sum(p['Y'] for p in px_list) / float(len(px_list))
-                return {
-                    "r": round(avg_r / 255.0, 4),
-                    "g": round(avg_g / 255.0, 4),
-                    "b": round(avg_b / 255.0, 4),
-                    "rgb_255": [int(round(avg_r)), int(round(avg_g)), int(round(avg_b))],
-                    "angle": round(avg_deg, 1),
-                    "sat": round(avg_sat, 1),
-                    "luma": round(avg_luma, 1),
-                    "count": len(px_list)
-                }
+            return {"success": False, "error": "No skin pixels detected"}
 
-            face_stats = aggregate(face_candidates)
-            body_stats = aggregate(body_candidates)
-            overall_stats = aggregate(candidates)
+        # Vertical distribution analysis to separate Face/Head from Torso/Body
+        y_bins = [0] * 10
+        for p in candidates:
+            idx = min(9, int((p['y'] / float(h)) * 10))
+            y_bins[idx] += 1
 
-            # Default top-level fields to face_stats for immediate accuracy
-            primary = face_stats or overall_stats
-            res = {
-                "success": True,
-                "width": w,
-                "height": h,
-                "r": primary["r"],
-                "g": primary["g"],
-                "b": primary["b"],
-                "rgb_255": primary["rgb_255"],
-                "angle": primary["angle"],
-                "sat": primary["sat"],
-                "luma": primary["luma"],
-                "face": face_stats,
-                "body": body_stats,
-                "overall": overall_stats,
-                "count": len(candidates)
+        # Find clothing/neck valley separating upper head/face from lower body
+        split_y = h * 0.45
+        for i in range(2, 7):
+            if y_bins[i] < y_bins[i-1] and y_bins[i] < y_bins[i+1] and y_bins[i] < (len(candidates) * 0.05):
+                split_y = (i + 0.5) * (h / 10.0)
+                break
+
+        face_candidates = [p for p in candidates if p['y'] < split_y]
+        body_candidates = [p for p in candidates if p['y'] >= split_y]
+
+        # If no upper skin exists (e.g. tight crop on torso), fallback to all candidates
+        if not face_candidates:
+            face_candidates = list(candidates)
+        if not body_candidates:
+            body_candidates = list(candidates)
+
+        # Filter shadow falloff on face (focus on key-lit midtones & highlights: upper 70% luma)
+        if len(face_candidates) > 20:
+            face_candidates.sort(key=lambda p: p['Y'])
+            face_candidates = face_candidates[int(len(face_candidates) * 0.30):]
+
+        def aggregate(px_list):
+            if not px_list: return None
+            avg_r = sum(p['r'] for p in px_list) / float(len(px_list))
+            avg_g = sum(p['g'] for p in px_list) / float(len(px_list))
+            avg_b = sum(p['b'] for p in px_list) / float(len(px_list))
+            avg_deg = sum(p['deg'] for p in px_list) / float(len(px_list))
+            avg_sat = sum(p['sat'] for p in px_list) / float(len(px_list))
+            avg_luma = sum(p['Y'] for p in px_list) / float(len(px_list))
+            return {
+                "r": round(avg_r / 255.0, 4),
+                "g": round(avg_g / 255.0, 4),
+                "b": round(avg_b / 255.0, 4),
+                "rgb_255": [int(round(avg_r)), int(round(avg_g)), int(round(avg_b))],
+                "angle": round(avg_deg, 1),
+                "sat": round(avg_sat, 1),
+                "luma": round(avg_luma, 1),
+                "count": len(px_list)
             }
-    except Exception as e:
-        res = {"success": False, "error": str(e)}
 
-    with open(out_json, 'w') as f:
-        json.dump(res, f)
+        face_stats = aggregate(face_candidates)
+        body_stats = aggregate(body_candidates)
+        overall_stats = aggregate(candidates)
+
+        # Default top-level fields to face_stats for immediate accuracy
+        primary = face_stats or overall_stats
+        return {
+            "success": True,
+            "width": w,
+            "height": h,
+            "r": primary["r"],
+            "g": primary["g"],
+            "b": primary["b"],
+            "rgb_255": primary["rgb_255"],
+            "angle": primary["angle"],
+            "sat": primary["sat"],
+            "luma": primary["luma"],
+            "face": face_stats,
+            "body": body_stats,
+            "overall": overall_stats,
+            "count": len(candidates)
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+def run_daemon(port_file):
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server.bind(('127.0.0.1', 0))
+    server.listen(5)
+    assigned_port = server.getsockname()[1]
+
+    with open(port_file, 'w') as f:
+        f.write(str(assigned_port) + "\n")
+
+    # 15 minutes idle timeout
+    IDLE_TIMEOUT = 900
+    last_active = time.time()
+    server.settimeout(2.0)
+
+    try:
+        while True:
+            if time.time() - last_active > IDLE_TIMEOUT:
+                break
+            try:
+                conn, _ = server.accept()
+            except socket.timeout:
+                continue
+            except Exception:
+                break
+
+            last_active = time.time()
+            conn.settimeout(10.0)
+            buffer = ""
+
+            try:
+                while True:
+                    data = conn.recv(4096)
+                    if not data:
+                        break
+                    buffer += data.decode('utf-8', errors='ignore')
+                    if "\n" in buffer:
+                        line, buffer = buffer.split("\n", 1)
+                        line = line.strip()
+                        if not line:
+                            continue
+
+                        try:
+                            req = json.loads(line)
+                        except Exception as e:
+                            resp = {"success": False, "error": "Invalid JSON: " + str(e)}
+                            conn.sendall((json.dumps(resp) + "\n").encode('utf-8'))
+                            continue
+
+                        cmd = req.get("cmd")
+                        if cmd == "ping":
+                            resp = {"success": True, "pong": True}
+                        elif cmd == "sample":
+                            path = req.get("path")
+                            resp = analyze_image(path)
+                        elif cmd == "exit":
+                            resp = {"success": True, "exiting": True}
+                            conn.sendall((json.dumps(resp) + "\n").encode('utf-8'))
+                            conn.close()
+                            return
+                        else:
+                            resp = {"success": False, "error": "Unknown command"}
+
+                        conn.sendall((json.dumps(resp) + "\n").encode('utf-8'))
+            except Exception:
+                pass
+            finally:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+    finally:
+        try:
+            server.close()
+        except Exception:
+            pass
+        if os.path.exists(port_file):
+            try:
+                os.remove(port_file)
+            except Exception:
+                pass
 
 if __name__ == '__main__':
-    if len(sys.argv) >= 3:
-        sample_photo(sys.argv[1], sys.argv[2])
+    if len(sys.argv) >= 2 and sys.argv[1] == '--daemon':
+        port_file = sys.argv[2] if len(sys.argv) >= 3 else "skinscope_daemon.port"
+        run_daemon(port_file)
+    elif len(sys.argv) >= 3:
+        # Standard one-shot mode: python sample_photo.py <photo_path> <out_json>
+        res = analyze_image(sys.argv[1])
+        with open(sys.argv[2], 'w') as f:
+            json.dump(res, f)
+    else:
+        print("Usage:")
+        print("  One-shot: python sample_photo.py <photo_path> <out_json>")
+        print("  Daemon:   python sample_photo.py --daemon <port_file_path>")

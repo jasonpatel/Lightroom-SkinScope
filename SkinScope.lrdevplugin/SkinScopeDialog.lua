@@ -1246,6 +1246,15 @@ function SkinScopeDialog.show(activeSettings)
                 isRunning = false
                 SkinScopeDialog.isOpen = false
                 _G.SkinScope_isOpen = false
+
+                -- Shut down persistent sampling daemon cleanly
+                LrTasks.startAsyncTask(function()
+                    local samplerPath = LrPathUtils.child(_PLUGIN.path, 'SkinSampler.lua')
+                    local SkinSampler = dofile(samplerPath)
+                    if SkinSampler and SkinSampler.stopDaemon then
+                        SkinSampler.stopDaemon()
+                    end
+                end)
             end,
         })
     end)
