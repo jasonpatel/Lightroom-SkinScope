@@ -397,7 +397,49 @@ function SkinScopeDialog.show(activeSettings)
         -- Track sampling requests so that rapid navigation doesn't let stale background samples overwrite the active photo
         local currentSamplingSeq = 0
 
-        -- Helper to read settings from a photo
+        -- Helper to apply skin tone & luma settings directly to photo and Develop module
+        local function applySettingsToPhoto(photo, targetHue, targetSat, targetExp)
+            if not photo then return end
+
+            -- 1. Direct catalog database transaction: permanently saves to this photo
+            local catalog = LrApplication.activeCatalog()
+            pcall(function()
+                catalog:withWriteAccessDo("SkinScope: Apply Settings", function()
+                    photo:applyDevelopSettings({
+                        HueAdjustmentOrange = targetHue,
+                        SaturationAdjustmentOrange = targetSat,
+                        Exposure2012 = targetExp,
+                    })
+                end)
+            end)
+
+            -- 2. If in Develop module, also push to LrDevelopController if photo matches
+            if LrApplicationView.getCurrentModuleName() == 'develop' then
+                local cur = catalog:getTargetPhoto()
+                if cur and cur.localIdentifier == photo.localIdentifier then
+                    pcall(function()
+                        LrDevelopController.setValue('HueAdjustmentOrange', targetHue)
+                    end)
+                    LrTasks.sleep(0.01)
+                    pcall(function()
+                        LrDevelopController.setValue('SaturationAdjustmentOrange', targetSat)
+                    end)
+                    LrTasks.sleep(0.01)
+                    pcall(function()
+                        if LrDevelopController.getValue('Exposure2012') ~= nil then
+                            LrDevelopController.setValue('Exposure2012', targetExp)
+                        else
+                            LrDevelopController.setValue('Exposure', targetExp)
+                        end
+                    end)
+                end
+            end
+
+            propertyTable.current_orange_hue = targetHue
+            propertyTable.current_orange_sat = targetSat
+            propertyTable.current_exposure = targetExp
+        end
+
         -- Helper to read settings from a photo instantaneously without blocking on Develop side panel loading
         local function refreshFromActivePhoto(photo, autoApplyOnAnalyze)
             if not photo then return end
@@ -510,49 +552,6 @@ function SkinScopeDialog.show(activeSettings)
         local initCatalog = LrApplication.activeCatalog()
         local initP = initCatalog and initCatalog:getTargetPhoto()
         if initP then lastPhotoId = initP.localIdentifier end
-
-        -- Helper to apply skin tone & luma settings directly to photo and Develop module
-        local function applySettingsToPhoto(photo, targetHue, targetSat, targetExp)
-            if not photo then return end
-
-            -- 1. Direct catalog database transaction: permanently saves to this photo
-            local catalog = LrApplication.activeCatalog()
-            pcall(function()
-                catalog:withWriteAccessDo("SkinScope: Apply Settings", function()
-                    photo:applyDevelopSettings({
-                        HueAdjustmentOrange = targetHue,
-                        SaturationAdjustmentOrange = targetSat,
-                        Exposure2012 = targetExp,
-                    })
-                end)
-            end)
-
-            -- 2. If in Develop module, also push to LrDevelopController if photo matches
-            if LrApplicationView.getCurrentModuleName() == 'develop' then
-                local cur = catalog:getTargetPhoto()
-                if cur and cur.localIdentifier == photo.localIdentifier then
-                    pcall(function()
-                        LrDevelopController.setValue('HueAdjustmentOrange', targetHue)
-                    end)
-                    LrTasks.sleep(0.01)
-                    pcall(function()
-                        LrDevelopController.setValue('SaturationAdjustmentOrange', targetSat)
-                    end)
-                    LrTasks.sleep(0.01)
-                    pcall(function()
-                        if LrDevelopController.getValue('Exposure2012') ~= nil then
-                            LrDevelopController.setValue('Exposure2012', targetExp)
-                        else
-                            LrDevelopController.setValue('Exposure', targetExp)
-                        end
-                    end)
-                end
-            end
-
-            propertyTable.current_orange_hue = targetHue
-            propertyTable.current_orange_sat = targetSat
-            propertyTable.current_exposure = targetExp
-        end
 
         -- Filmstrip navigation helper
         local isNavigating = false
