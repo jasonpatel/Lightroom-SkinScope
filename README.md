@@ -12,36 +12,35 @@
 
 ---
 
-## 📸 The Problem Every Portrait Photographer Faces
+## 📸 The Problem
 
-Getting skin tones right across an entire shoot is one of the most frustrating parts of editing:
-- **Eye fatigue lies to you:** After staring at a screen for an hour, your eyes adjust to whatever color cast is in front of you. What looked warm and flattering at midnight often looks sickly yellow or bright magenta the next morning.
-- **Inconsistent lighting:** Even in the same location, slight changes in bounce light, flash power, or cloudy skies cause skin tones to shift from one shot to the next.
-- **Copying and pasting develop settings rarely works:** A slider adjustment that looked great on one photo often makes the next one look sunburned or washed out.
-- **Color vision challenges:** If you have even subtle red-green color deficiency, judging skin undertones by eye is stressful guesswork.
-
----
-
-## 💡 How SkinScope Helps
-
-SkinScope is a small floating panel that sits alongside your Lightroom develop module. Instead of guessing, it acts as an **objective color meter for skin**:
-
-1. **It reads the skin in your photo:** SkinScope automatically samples skin pixels from your active photo.
-2. **It shows you if the color is off:** A simple meter tells you immediately whether the skin is leaning too magenta (red/pink) or too green/yellow, and whether it's too dark or bright.
-3. **Fix it in 1 click:** Click the orange snap button, and SkinScope adjusts only the skin sliders (Orange Hue & Saturation) to bring it directly onto a natural baseline—without changing the background, clothing, or overall white balance.
-4. **Move through your shoot fast (`⚡ Apply Next ▶`):** As you click through your photos, SkinScope automatically recalculates and applies the right adjustment for each individual photo so the entire sequence matches.
+* **Eye fatigue:** After 30 minutes of editing, your eyes adapt to screen tints, making color balance a guessing game.
+* **Inconsistent light:** Changing clouds, flash power, or bounce light make skin tones shift from shot to shot.
+* **Copy-paste fails:** Pasting develop settings rarely produces consistent skin across a sequence.
+* **Color vision:** Any degree of red-green deficiency makes judging subtle skin undertones stressful.
 
 ---
 
-## 🚀 Key Features at a Glance
+## 💡 How It Works
 
-* **Visual Skin Meter**: Instantly see if your skin tones are neutral, too pink, or too yellow.
-* **1-Click Tone Correction**: Fixes skin color instantly without touching white balance or background colors.
-* **8 Skin Profiles**: Tailored baselines for fair, olive, East Asian, and deep melanin skin tones.
-* **3 Skin Brightness Targets**: Snap skin exposure to Low, Mid, or Bright with one click.
-* **Batch Consistency (`Apply Next`)**: Move through a sequence photo-by-photo with the same look applied to each one automatically.
-* **Fast & Responsive**: Built to flip between photos instantly without slowing down your editing workflow.
-* **Before / After Color Swatch**: See your original photo's skin tone right next to your edited result.
+SkinScope is a compact floating panel in Lightroom Classic that acts as a **dedicated color meter for skin**:
+
+1. **Auto-Reads Skin**: Samples skin pixels from your active photo in real time.
+2. **Shows Casts Instantly**: Flags immediately if skin is leaning too pink/magenta or too yellow/green.
+3. **1-Click Correction**: Snaps Orange HSL to neutral skin targets without changing white balance or background colors.
+4. **Cull & Match (`⚡ Apply Next ▶`)**: Advances to the next shot and automatically recalculates the exact fix to match.
+
+---
+
+## 🚀 Key Features
+
+* **Real-Time Skin Meter**: Visual vectorscope readout showing color cast and luminance.
+* **1-Click Snap**: Aligns skin tone without affecting background or clothing.
+* **8 Skin Profiles**: Baselines from pale/porcelain to deep melanin.
+* **3 Exposure Targets**: 1-click Low, Mid, or Bright skin luminance.
+* **Sequence Matching (`Apply Next`)**: Move shot-by-shot with consistent skin applied automatically.
+* **Native Speed**: Zero lag when cycling photos; memory-cached analysis.
+* **Before / After Swatch**: Live split swatch comparing your photo to the target.
 
 ---
 
