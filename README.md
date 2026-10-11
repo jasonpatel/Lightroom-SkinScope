@@ -6,7 +6,7 @@
 ---
 
 <p align="center">
-  <img src="assets/skinscope-hud.png" alt="SkinScope Real-time Floating HUD" width="380" />
+  <img src="assets/skinscope-hud.png?v=2.0.0" alt="SkinScope Real-time Floating HUD" width="380" />
   <br>
   <em>SkinScope Real-time Floating HUD: Vectorscope I-Line alignment, Van Hurkman complexions, and continuous Before/After swatch.</em>
 </p>
