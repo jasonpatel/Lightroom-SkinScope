@@ -87,6 +87,7 @@ function SkinScopeDialog.show(activeSettings)
         propertyTable.complexion_locked = savedCompLock
         propertyTable.complexion_unlocked = not savedCompLock
         propertyTable.lock_button_title = savedCompLock and "🔒" or "🔓"
+        propertyTable.selected_exp_tier = pluginPrefs.savedExpTier or 'mid'
         propertyTable.gender = savedGender
         propertyTable.sample_zone = savedZone
         propertyTable.face_sample = nil
@@ -398,7 +399,7 @@ function SkinScopeDialog.show(activeSettings)
 
         -- Helper to read settings from a photo
         -- Helper to read settings from a photo instantaneously without blocking on Develop side panel loading
-        local function refreshFromActivePhoto(photo, appliedSettings)
+        local function refreshFromActivePhoto(photo, autoApplyOnAnalyze)
             if not photo then return end
             propertyTable.prior_r = nil
             propertyTable.prior_g = nil
@@ -422,12 +423,6 @@ function SkinScopeDialog.show(activeSettings)
                 local curOrange = dev.HueAdjustmentOrange or 0
                 local curExposure = dev.Exposure2012 or dev.Exposure or 0
                 local curOrangeSat = dev.SaturationAdjustmentOrange or 0
-
-                if appliedSettings then
-                    curOrange = appliedSettings.hue or curOrange
-                    curOrangeSat = appliedSettings.sat or curOrangeSat
-                    curExposure = appliedSettings.exp or curExposure
-                end
 
                 propertyTable.photo_baseline_temp = curTemp
                 propertyTable.photo_baseline_tint = curTint
@@ -483,6 +478,29 @@ function SkinScopeDialog.show(activeSettings)
                         end
                     end
                     updateDiagnostics()
+
+                    -- If autoApplyOnAnalyze was requested (via Apply & Next), compute and apply tailored settings for this photo
+                    if autoApplyOnAnalyze and propertyTable.res then
+                        local targetHue = propertyTable.res.suggested_hsl_orange_target or 0
+                        local targetSat = propertyTable.res.suggested_orange_sat_target or 0
+
+                        -- Pick target exposure matching user's selected preference (low, mid, or high)
+                        local expTier = propertyTable.selected_exp_tier or 'mid'
+                        local targetExp = propertyTable.current_exposure or 0
+                        if expTier == 'high' and propertyTable.res.exp_target_high then
+                            targetExp = propertyTable.res.exp_target_high
+                        elseif expTier == 'low' and propertyTable.res.exp_target_low then
+                            targetExp = propertyTable.res.exp_target_low
+                        elseif propertyTable.res.exp_target_mid then
+                            targetExp = propertyTable.res.exp_target_mid
+                        end
+
+                        applySettingsToPhoto(photo, targetHue, targetSat, targetExp)
+                        updateDiagnostics()
+
+                        local tierLabel = (expTier == 'high' and "High" or (expTier == 'low' and "Low" or "Mid"))
+                        LrDialogs.showBezel(string.format("Auto-Graded Next Photo:\nOrange %+dH %+dS • %s EV %+.2f", targetHue, targetSat, tierLabel, targetExp))
+                    end
                 end
             end)
         end
@@ -601,34 +619,21 @@ function SkinScopeDialog.show(activeSettings)
 
                     local oldId = targetPhoto.localIdentifier
 
-                    -- If applying, capture active photo's settings and carry them forward to the next photo
-                    local carriedHue = nil
-                    local carriedSat = nil
-                    local carriedExp = nil
-
-                    if shouldApply then
-                        -- 1. Grab what is currently on the active photo (or suggested snap if not yet edited)
-                        carriedHue = propertyTable.current_orange_hue
-                        carriedSat = propertyTable.current_orange_sat
-                        carriedExp = propertyTable.current_exposure
-
-                        -- If user hasn't snapped the current photo yet, compute and apply suggested target to current photo
-                        if propertyTable.res then
-                            if not carriedHue or carriedHue == 0 then
-                                carriedHue = propertyTable.res.suggested_hsl_orange_target or 0
-                            end
-                            if not carriedSat or carriedSat == 0 then
-                                carriedSat = propertyTable.res.suggested_orange_sat_target or 0
-                            end
-                            if not carriedExp or carriedExp == 0 then
-                                carriedExp = propertyTable.res.exp_target_mid or 0
-                            end
+                    -- If shouldApply is true, ensure current photo has its grading snapped before advancing
+                    if shouldApply and propertyTable.res then
+                        local curHue = propertyTable.current_orange_hue or propertyTable.res.suggested_hsl_orange_target or 0
+                        local curSat = propertyTable.current_orange_sat or propertyTable.res.suggested_orange_sat_target or 0
+                        local expTier = propertyTable.selected_exp_tier or 'mid'
+                        local curExp = propertyTable.current_exposure or 0
+                        if expTier == 'high' and propertyTable.res.exp_target_high then
+                            curExp = propertyTable.res.exp_target_high
+                        elseif expTier == 'low' and propertyTable.res.exp_target_low then
+                            curExp = propertyTable.res.exp_target_low
+                        elseif propertyTable.res.exp_target_mid then
+                            curExp = propertyTable.res.exp_target_mid
                         end
 
-                        -- Ensure the current photo has these exact settings applied before we leave it
-                        if carriedHue or carriedSat or carriedExp then
-                            applySettingsToPhoto(targetPhoto, carriedHue or 0, carriedSat or 0, carriedExp or 0)
-                        end
+                        applySettingsToPhoto(targetPhoto, curHue, curSat, curExp)
                     end
 
                     -- Discover adjacent photo across active filmstrip
@@ -684,18 +689,7 @@ function SkinScopeDialog.show(activeSettings)
                         return
                     end
 
-                    -- 1. If applying, immediately stamp the carried settings onto nextPhoto
-                    local appliedCarry = nil
-                    if shouldApply and (carriedHue or carriedSat or carriedExp) then
-                        appliedCarry = {
-                            hue = carriedHue or 0,
-                            sat = carriedSat or 0,
-                            exp = carriedExp or 0,
-                        }
-                        applySettingsToPhoto(nextPhoto, appliedCarry.hue, appliedCarry.sat, appliedCarry.exp)
-                    end
-
-                    -- 2. Switch active selection to nextPhoto
+                    -- 1. Switch active selection to nextPhoto
                     lastPhotoId = nextPhoto.localIdentifier
                     local targetPhotos = catalog:getTargetPhotos()
                     if targetPhotos and #targetPhotos > 1 then
@@ -704,15 +698,11 @@ function SkinScopeDialog.show(activeSettings)
                         catalog:setSelectedPhotos(nextPhoto, { nextPhoto })
                     end
 
-                    -- 3. Release navigation lock IMMEDIATELY so the user can hit Next/Prev again instantly
+                    -- 2. Release navigation lock IMMEDIATELY so the user can hit Next/Prev again instantly
                     isNavigating = false
 
-                    -- 4. Update HUD immediately from next photo with carried settings
-                    refreshFromActivePhoto(nextPhoto, appliedCarry)
-
-                    if shouldApply and appliedCarry then
-                        LrDialogs.showBezel(string.format("Applied To Next Photo:\nOrange %+dH %+dS • Exp %+.2f EV", appliedCarry.hue, appliedCarry.sat, appliedCarry.exp))
-                    end
+                    -- 3. Update HUD immediately from next photo; if shouldApply is true, auto-grade nextPhoto when its pixels are analyzed
+                    refreshFromActivePhoto(nextPhoto, shouldApply)
                 end)
 
                 isNavigating = false
@@ -1187,6 +1177,8 @@ function SkinScopeDialog.show(activeSettings)
                         title = LrView.bind('exp_low_text'),
                         fill_horizontal = 0.33,
                         action = function()
+                            propertyTable.selected_exp_tier = 'low'
+                            pluginPrefs.savedExpTier = 'low'
                             if LrApplicationView.getCurrentModuleName() ~= 'develop' then
                                 LrApplicationView.switchToModule('develop')
                             end
@@ -1202,6 +1194,8 @@ function SkinScopeDialog.show(activeSettings)
                         fill_horizontal = 0.34,
                         font = "<system/bold>",
                         action = function()
+                            propertyTable.selected_exp_tier = 'mid'
+                            pluginPrefs.savedExpTier = 'mid'
                             if LrApplicationView.getCurrentModuleName() ~= 'develop' then
                                 LrApplicationView.switchToModule('develop')
                             end
@@ -1216,6 +1210,8 @@ function SkinScopeDialog.show(activeSettings)
                         title = LrView.bind('exp_high_text'),
                         fill_horizontal = 0.33,
                         action = function()
+                            propertyTable.selected_exp_tier = 'high'
+                            pluginPrefs.savedExpTier = 'high'
                             if LrApplicationView.getCurrentModuleName() ~= 'develop' then
                                 LrApplicationView.switchToModule('develop')
                             end
