@@ -601,14 +601,33 @@ function SkinScopeDialog.show(activeSettings)
 
                     local oldId = targetPhoto.localIdentifier
 
-                    -- If applying, ensure current photo is snapped before advancing
-                    if shouldApply and propertyTable.res then
-                        local curHueDiff = math.abs((propertyTable.current_orange_hue or 0) - (propertyTable.res.suggested_hsl_orange_target or 0))
-                        if curHueDiff > 1 or not propertyTable.current_orange_hue or propertyTable.current_orange_hue == 0 then
-                            local tHue = propertyTable.res.suggested_hsl_orange_target or 0
-                            local tSat = propertyTable.res.suggested_orange_sat_target or 0
-                            local tExp = propertyTable.res.exp_target_mid or (propertyTable.current_exposure or 0)
-                            applySettingsToPhoto(targetPhoto, tHue, tSat, tExp)
+                    -- If applying, capture active photo's settings and carry them forward to the next photo
+                    local carriedHue = nil
+                    local carriedSat = nil
+                    local carriedExp = nil
+
+                    if shouldApply then
+                        -- 1. Grab what is currently on the active photo (or suggested snap if not yet edited)
+                        carriedHue = propertyTable.current_orange_hue
+                        carriedSat = propertyTable.current_orange_sat
+                        carriedExp = propertyTable.current_exposure
+
+                        -- If user hasn't snapped the current photo yet, compute and apply suggested target to current photo
+                        if propertyTable.res then
+                            if not carriedHue or carriedHue == 0 then
+                                carriedHue = propertyTable.res.suggested_hsl_orange_target or 0
+                            end
+                            if not carriedSat or carriedSat == 0 then
+                                carriedSat = propertyTable.res.suggested_orange_sat_target or 0
+                            end
+                            if not carriedExp or carriedExp == 0 then
+                                carriedExp = propertyTable.res.exp_target_mid or 0
+                            end
+                        end
+
+                        -- Ensure the current photo has these exact settings applied before we leave it
+                        if carriedHue or carriedSat or carriedExp then
+                            applySettingsToPhoto(targetPhoto, carriedHue or 0, carriedSat or 0, carriedExp or 0)
                         end
                     end
 
@@ -665,7 +684,18 @@ function SkinScopeDialog.show(activeSettings)
                         return
                     end
 
-                    -- 1. Switch active selection to nextPhoto immediately
+                    -- 1. If applying, immediately stamp the carried settings onto nextPhoto
+                    local appliedCarry = nil
+                    if shouldApply and (carriedHue or carriedSat or carriedExp) then
+                        appliedCarry = {
+                            hue = carriedHue or 0,
+                            sat = carriedSat or 0,
+                            exp = carriedExp or 0,
+                        }
+                        applySettingsToPhoto(nextPhoto, appliedCarry.hue, appliedCarry.sat, appliedCarry.exp)
+                    end
+
+                    -- 2. Switch active selection to nextPhoto
                     lastPhotoId = nextPhoto.localIdentifier
                     local targetPhotos = catalog:getTargetPhotos()
                     if targetPhotos and #targetPhotos > 1 then
@@ -674,22 +704,14 @@ function SkinScopeDialog.show(activeSettings)
                         catalog:setSelectedPhotos(nextPhoto, { nextPhoto })
                     end
 
-                    -- 2. Release navigation lock IMMEDIATELY so the user can hit Next/Prev again instantly
+                    -- 3. Release navigation lock IMMEDIATELY so the user can hit Next/Prev again instantly
                     isNavigating = false
 
-                    -- 3. Update HUD immediately from database develop settings & metadata
-                    refreshFromActivePhoto(nextPhoto)
+                    -- 4. Update HUD immediately from next photo with carried settings
+                    refreshFromActivePhoto(nextPhoto, appliedCarry)
 
-                    -- 4. If applying, solve & apply tailored settings for this specific photo
-                    if shouldApply and propertyTable.res then
-                        local targetHue = propertyTable.res.suggested_hsl_orange_target or 0
-                        local targetSat = propertyTable.res.suggested_orange_sat_target or 0
-                        local targetExp = propertyTable.res.exp_target_mid or (propertyTable.current_exposure or 0)
-
-                        applySettingsToPhoto(nextPhoto, targetHue, targetSat, targetExp)
-                        updateDiagnostics()
-
-                        LrDialogs.showBezel(string.format("Auto-Aligned Next Photo:\nOrange %+dH %+dS • Luma %+.2f EV", targetHue, targetSat, targetExp))
+                    if shouldApply and appliedCarry then
+                        LrDialogs.showBezel(string.format("Applied To Next Photo:\nOrange %+dH %+dS • Exp %+.2f EV", appliedCarry.hue, appliedCarry.sat, appliedCarry.exp))
                     end
                 end)
 
