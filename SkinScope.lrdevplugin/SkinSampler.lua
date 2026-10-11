@@ -46,7 +46,7 @@ function SkinSampler.samplePhoto(photo)
     if not photo then return nil end
 
     local pluginPrefs = LrPrefs.prefsForPlugin()
-    local thumbSize = tonumber(pluginPrefs.thumbnailSize) or 1024
+    local thumbSize = tonumber(pluginPrefs.thumbnailSize) or 512
 
     local logDir = LrPathUtils.getStandardFilePath('appData') or _PLUGIN.path
     local thumbPath = LrPathUtils.child(logDir, 'skinscope_thumb.jpg')

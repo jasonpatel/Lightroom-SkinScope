@@ -35,9 +35,9 @@ local GENDERS = {
 }
 
 local THUMB_SIZES = {
-    { title = "512 px (Fastest sampling)", value = "512" },
-    { title = "1024 px (Recommended balanced)", value = "1024" },
-    { title = "2048 px (Highest precision)", value = "2048" },
+    { title = "512 px (Fastest sampling - Recommended)", value = "512" },
+    { title = "1024 px (Balanced)", value = "1024" },
+    { title = "2048 px (High precision)", value = "2048" },
 }
 
 LrTasks.startAsyncTask(function()

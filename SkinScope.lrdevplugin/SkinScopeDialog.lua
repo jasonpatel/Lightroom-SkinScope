@@ -388,6 +388,9 @@ function SkinScopeDialog.show(activeSettings)
             end
         end)
 
+        -- Track sampling requests so that rapid navigation doesn't let stale background samples overwrite the active photo
+        local currentSamplingSeq = 0
+
         -- Helper to read settings from a photo
         local function refreshFromActivePhoto(photo, appliedSettings)
             if not photo then return end
@@ -397,6 +400,11 @@ function SkinScopeDialog.show(activeSettings)
             propertyTable.has_prior_diff = false
             propertyTable.face_sample = nil
             propertyTable.body_sample = nil
+
+            currentSamplingSeq = currentSamplingSeq + 1
+            local thisSamplingSeq = currentSamplingSeq
+
+            -- Phase 1: INSTANT UI Update (Metadata, develop sliders, camera profile)
             LrTasks.pcall(function()
                 local name = photo:getFormattedMetadata('fileName') or "Active Photo"
                 propertyTable.photo_name = name
@@ -466,23 +474,34 @@ function SkinScopeDialog.show(activeSettings)
                     propertyTable.profile_status_str = string.format("%s (Creative LUT)", profileName:sub(1, 18))
                     propertyTable.profile_status_color = LrColor(0.95, 0.68, 0.10)
                 end
+
+                -- Compute immediate baseline diagnostics before pixels arrive
+                updateDiagnostics()
+            end)
+
+            -- Phase 2: ASYNC Background Pixel Sampling (Doesn't block UI / Next / Prev)
+            propertyTable.sample_info_str = "Analyzing skin pixels..."
+            LrTasks.startAsyncTask(function()
                 local samplerPath = LrPathUtils.child(_PLUGIN.path, 'SkinSampler.lua')
                 local SkinSampler = dofile(samplerPath)
                 local samples = SkinSampler.samplePhoto(photo)
-                if samples then
-                    propertyTable.sampled_skin = samples.sampled_skin
-                    propertyTable.face_sample = samples.face_sample
-                    propertyTable.body_sample = samples.body_sample
-                    if samples.sample_info and samples.sample_info.width then
-                        propertyTable.sample_info_str = format_sample_info_str(
-                            samples.sample_info.width,
-                            samples.sample_info.height,
-                            samples.sample_info.count
-                        )
-                    end
-                end
 
-                updateDiagnostics()
+                -- Only apply sampled pixels if the user hasn't already switched to another photo
+                if thisSamplingSeq == currentSamplingSeq then
+                    if samples then
+                        propertyTable.sampled_skin = samples.sampled_skin
+                        propertyTable.face_sample = samples.face_sample
+                        propertyTable.body_sample = samples.body_sample
+                        if samples.sample_info and samples.sample_info.width then
+                            propertyTable.sample_info_str = format_sample_info_str(
+                                samples.sample_info.width,
+                                samples.sample_info.height,
+                                samples.sample_info.count
+                            )
+                        end
+                    end
+                    updateDiagnostics()
+                end
             end)
         end
 
@@ -675,12 +694,15 @@ function SkinScopeDialog.show(activeSettings)
                         end
                         LrTasks.sleep(0.03)
                     end
-                    LrTasks.sleep(0.04)
+                    LrTasks.sleep(0.02)
 
-                    -- 3. Assess the next photo based on its own pixels and scene lighting
+                    -- 3. Release navigation lock immediately so user can press Next/Prev again without latency
+                    isNavigating = false
+
+                    -- 4. Assess the next photo based on its own pixels and scene lighting
                     refreshFromActivePhoto(nextPhoto)
 
-                    -- 4. If applying, solve & apply tailored settings for this specific photo
+                    -- 5. If applying, solve & apply tailored settings for this specific photo
                     if shouldApply and propertyTable.res then
                         local targetHue = propertyTable.res.suggested_hsl_orange_target or 0
                         local targetSat = propertyTable.res.suggested_orange_sat_target or 0
