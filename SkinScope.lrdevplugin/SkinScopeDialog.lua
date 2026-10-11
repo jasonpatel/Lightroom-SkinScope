@@ -537,6 +537,60 @@ function SkinScopeDialog.show(activeSettings)
 
         -- Filmstrip navigation helper
         local isNavigating = false
+        local cachedFilmstripPhotos = nil
+        local cachedFilmstripSourceId = nil
+
+        local function getFilmstripPhotos(catalog)
+            local targetPhotos = catalog:getTargetPhotos()
+            if targetPhotos and #targetPhotos > 1 then
+                -- Explicit multi-selection active
+                return targetPhotos
+            end
+
+            -- Check active sources (Folder or Collection currently open in Lightroom)
+            local sources = catalog:getActiveSources()
+            local sourceKey = ""
+            if sources and #sources > 0 then
+                for _, src in ipairs(sources) do
+                    if src and src.localIdentifier then
+                        sourceKey = sourceKey .. tostring(src.localIdentifier) .. ";"
+                    end
+                end
+            end
+
+            if cachedFilmstripPhotos and cachedFilmstripSourceId == sourceKey and #cachedFilmstripPhotos > 0 then
+                return cachedFilmstripPhotos
+            end
+
+            if sources and #sources > 0 then
+                for _, src in ipairs(sources) do
+                    if src and src.getPhotos then
+                        local srcPhotos = src:getPhotos()
+                        if srcPhotos and #srcPhotos > 0 then
+                            cachedFilmstripPhotos = srcPhotos
+                            cachedFilmstripSourceId = sourceKey
+                            return cachedFilmstripPhotos
+                        end
+                    end
+                end
+            end
+
+            -- Fast fallback: check multipleSelectedOrAllPhotos without doing an unbounded DB table dump
+            local fallback = nil
+            pcall(function()
+                if catalog.getMultipleSelectedOrAllPhotos then
+                    fallback = catalog:getMultipleSelectedOrAllPhotos()
+                end
+            end)
+            if fallback and #fallback > 0 then
+                cachedFilmstripPhotos = fallback
+                cachedFilmstripSourceId = "fallback"
+                return cachedFilmstripPhotos
+            end
+
+            return nil
+        end
+
         local function selectAdjacentPhoto(delta, forceApply)
             if isNavigating then return end
             isNavigating = true
@@ -564,34 +618,7 @@ function SkinScopeDialog.show(activeSettings)
 
                     -- Discover adjacent photo across active selection, filmstrip, or collection
                     local nextPhoto = nil
-                    local allPhotos = nil
-
-                    local targetPhotos = catalog:getTargetPhotos()
-                    if targetPhotos and #targetPhotos > 1 then
-                        allPhotos = targetPhotos
-                    else
-                        local sources = catalog:getActiveSources()
-                        if sources and #sources > 0 then
-                            for _, src in ipairs(sources) do
-                                if src and src.getPhotos then
-                                    local srcPhotos = src:getPhotos()
-                                    if srcPhotos and #srcPhotos > 1 then
-                                        allPhotos = srcPhotos
-                                        break
-                                    end
-                                end
-                            end
-                        end
-                    end
-
-                    if not allPhotos or #allPhotos <= 1 then
-                        pcall(function()
-                            local all = catalog:getAllPhotos()
-                            if all and #all > 1 then
-                                allPhotos = all
-                            end
-                        end)
-                    end
+                    local allPhotos = getFilmstripPhotos(catalog)
 
                     if allPhotos and #allPhotos > 1 then
                         local currentIndex = nil
@@ -609,6 +636,21 @@ function SkinScopeDialog.show(activeSettings)
                                 LrDialogs.showBezel(delta > 0 and "At end of photo list." or "At start of photo list.")
                                 return
                             end
+                        else
+                            -- Current photo not in cached list (e.g. user jumped folders), invalidate and retry once
+                            cachedFilmstripPhotos = nil
+                            allPhotos = getFilmstripPhotos(catalog)
+                            if allPhotos then
+                                for i, p in ipairs(allPhotos) do
+                                    if p.localIdentifier == oldId then
+                                        local nextIndex = i + delta
+                                        if nextIndex >= 1 and nextIndex <= #allPhotos then
+                                            nextPhoto = allPhotos[nextIndex]
+                                        end
+                                        break
+                                    end
+                                end
+                            end
                         end
                     end
 
@@ -619,7 +661,12 @@ function SkinScopeDialog.show(activeSettings)
 
                     -- 1. Switch active selection to nextPhoto
                     lastPhotoId = nextPhoto.localIdentifier
-                    catalog:setSelectedPhotos(nextPhoto, targetPhotos or {})
+                    local targetPhotos = catalog:getTargetPhotos()
+                    if targetPhotos and #targetPhotos > 1 then
+                        catalog:setSelectedPhotos(nextPhoto, targetPhotos)
+                    else
+                        catalog:setSelectedPhotos(nextPhoto, { nextPhoto })
+                    end
 
                     -- 2. Brief wait for Lightroom to switch active photo pointer
                     for _ = 1, 6 do
