@@ -1,37 +1,47 @@
 # SkinScope for Lightroom Classic
 
-> A Lightroom Classic plugin that brings vectorscope skin tone grading and fast filmstrip culling into a simple floating HUD.
+> Get natural, consistent skin tones across your portrait sessions in seconds—without second-guessing by eye.
 
 ---
 
 <p align="center">
   <img src="assets/skinscope-hud-v2.png" alt="SkinScope Floating HUD" width="380" />
   <br>
-  <em>SkinScope HUD: Vectorscope I-Line indicator, skin complexion presets, and Before/After split swatch.</em>
+  <em>SkinScope HUD: Real-time skin tone meter, complexion presets, and instant 1-click correction.</em>
 </p>
 
 ---
 
-## 📸 The Problem It Solves
+## 📸 The Problem Every Portrait Photographer Faces
 
-Judging skin tones by eye gets tiring fast. After an hour of editing, your eyes adapt to whatever tint is on the screen, and what looked right at 9 PM often looks greenish or overly magenta the next morning. If you have any color vision deficiency (like red-green weakness), it's even harder.
-
-Video editors don't rely on their eyes for skin tones—they use the **Vectorscope I-Line** in DaVinci Resolve. 
-
-SkinScope brings that same reference line into Lightroom Classic. It samples the skin in your photo, tells you if it's leaning too magenta or too yellow, and lets you snap it into place with one click. When working through a set, you can grade one photo and move to the next while keeping the same look automatically.
+Getting skin tones right across an entire shoot is one of the most frustrating parts of editing:
+- **Eye fatigue lies to you:** After staring at a screen for an hour, your eyes adjust to whatever color cast is in front of you. What looked warm and flattering at midnight often looks sickly yellow or bright magenta the next morning.
+- **Inconsistent lighting:** Even in the same location, slight changes in bounce light, flash power, or cloudy skies cause skin tones to shift from one shot to the next.
+- **Copying and pasting develop settings rarely works:** A slider adjustment that looked great on one photo often makes the next one look sunburned or washed out.
+- **Color vision challenges:** If you have even subtle red-green color deficiency, judging skin undertones by eye is stressful guesswork.
 
 ---
 
-## 🚀 What It Does
+## 💡 How SkinScope Helps
 
-* **Vectorscope Skin Line (I-Line)**: Shows exactly where skin tones land and flags magenta or yellow/green casts.
-* **8 Complexion Profiles**: From porcelain to deep melanin, based on Alexis Van Hurkman's reference standards.
-* **Quick Tone Snapping**: Click to align Orange HSL directly to the skin line without affecting the rest of the image.
-* **3 Exposure Options**: Pick Low, Mid, or High luminance depending on the mood of the shot.
-* **Apply & Next (`⚡ Apply Next ▶`)**: Locks in your target look and adjusts each photo in a sequence to match as you click through.
-* **Fast Navigation**: Works directly with Lightroom's develop cache and debounced sampling so cycling photos doesn't stall.
-* **Complexion Lock (`🔒`)**: Locks your selected profile so accidental mouse scrolls don't change it.
-* **Before / After Swatch**: Live split swatch showing the original photo next to your current adjustment and target.
+SkinScope is a small floating panel that sits alongside your Lightroom develop module. Instead of guessing, it acts as an **objective color meter for skin**:
+
+1. **It reads the skin in your photo:** SkinScope automatically samples skin pixels from your active photo.
+2. **It shows you if the color is off:** A simple meter tells you immediately whether the skin is leaning too magenta (red/pink) or too green/yellow, and whether it's too dark or bright.
+3. **Fix it in 1 click:** Click the orange snap button, and SkinScope adjusts only the skin sliders (Orange Hue & Saturation) to bring it directly onto a natural baseline—without changing the background, clothing, or overall white balance.
+4. **Move through your shoot fast (`⚡ Apply Next ▶`):** As you click through your photos, SkinScope automatically recalculates and applies the right adjustment for each individual photo so the entire sequence matches.
+
+---
+
+## 🚀 Key Features at a Glance
+
+* **Visual Skin Meter**: Instantly see if your skin tones are neutral, too pink, or too yellow.
+* **1-Click Tone Correction**: Fixes skin color instantly without touching white balance or background colors.
+* **8 Skin Profiles**: Tailored baselines for fair, olive, East Asian, and deep melanin skin tones.
+* **3 Skin Brightness Targets**: Snap skin exposure to Low, Mid, or Bright with one click.
+* **Batch Consistency (`Apply Next`)**: Move through a sequence photo-by-photo with the same look applied to each one automatically.
+* **Fast & Responsive**: Built to flip between photos instantly without slowing down your editing workflow.
+* **Before / After Color Swatch**: See your original photo's skin tone right next to your edited result.
 
 ---
 
