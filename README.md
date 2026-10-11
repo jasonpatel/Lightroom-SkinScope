@@ -84,3 +84,10 @@ Judging skin tones by eye is prone to eye fatigue, room ambient casts, and color
 
 ## ☕ Support the Project
 If SkinScope helps your photography workflow, you can support development via [Buy Me a Coffee](https://buymeacoffee.com/jasonpatel).
+
+---
+
+## 👥 Authors & Contributors
+* **Jason Patel** ([@jasonpatel](https://github.com/jasonpatel)) — Creator & Lead Architect
+* **Gemini (Google DeepMind)** — Co-developer & Color Science / SDK Engineering
+
