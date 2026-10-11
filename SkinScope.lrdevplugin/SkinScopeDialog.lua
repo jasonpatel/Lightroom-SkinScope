@@ -547,7 +547,19 @@ function SkinScopeDialog.show(activeSettings)
                 return targetPhotos
             end
 
-            -- Check active sources (Folder or Collection currently open in Lightroom)
+            -- 1. Lightroom's getMultipleSelectedOrAllPhotos() returns the EXACT active filmstrip,
+            -- strictly respecting any active Library/Develop Filter Bar (rating, flag, label, metadata filters)!
+            local filteredFilmstrip = nil
+            pcall(function()
+                if catalog.getMultipleSelectedOrAllPhotos then
+                    filteredFilmstrip = catalog:getMultipleSelectedOrAllPhotos()
+                end
+            end)
+            if filteredFilmstrip and #filteredFilmstrip > 0 then
+                return filteredFilmstrip
+            end
+
+            -- 2. Fallback to active sources (Folder or Collection) only if filmstrip query returned nothing
             local sources = catalog:getActiveSources()
             local sourceKey = ""
             if sources and #sources > 0 then
@@ -573,19 +585,6 @@ function SkinScopeDialog.show(activeSettings)
                         end
                     end
                 end
-            end
-
-            -- Fast fallback: check multipleSelectedOrAllPhotos without doing an unbounded DB table dump
-            local fallback = nil
-            pcall(function()
-                if catalog.getMultipleSelectedOrAllPhotos then
-                    fallback = catalog:getMultipleSelectedOrAllPhotos()
-                end
-            end)
-            if fallback and #fallback > 0 then
-                cachedFilmstripPhotos = fallback
-                cachedFilmstripSourceId = "fallback"
-                return cachedFilmstripPhotos
             end
 
             return nil
