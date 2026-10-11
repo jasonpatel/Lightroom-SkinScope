@@ -126,7 +126,42 @@ $$\Delta\text{EV} = \log_2\left(\frac{\text{Luma}_{\text{target}}}{\max(1, \text
 ### B. Seamless Split Swatch Generator
 * Generates a 24-bit uncompressed $344 \times 36$ BMP dynamically (`write_split_swatch`).
 * Zero black separator line.
-* Left: live simulated skin. Right: target goal post.
+* Left: live simulated skin (or stacked Prior/Live split when edits are made). Right: target goal post.
+
+### C. Intent-Based Auto-Grading & Filmstrip Workflow (`⚡ Apply & Next ▶`)
+Unlike dumb preset paste operations that copy static slider numbers across photos, SkinScope executes **dynamic intent-based calibration** across sequential shots:
+
+```mermaid
+flowchart TD
+    subgraph PhotoA ["Photo 1 (Active Photo)"]
+        Choice["Photographer Chooses Creative Intent & Target Profile:<br/>• Complexion Target (e.g. Fair European, locked 🔒)<br/>• Sun Tan (e.g. Natural / Sun-Kissed)<br/>• Look / Mood (e.g. Filmic / Clean)<br/>• Exposure Preference (High-Key / Mid / Low-Key)"]
+        ApplyA["Current photo is snapped and saved to catalog"]
+    end
+
+    subgraph Nav ["Action: ⚡ Apply & Next ▶"]
+        PassIntent["Carry forward chosen INTENT & PREFERENCES<br/>(Target Profile, Tan, Mood, Exposure Tier)"]
+    end
+
+    subgraph PhotoB ["Photo 2 (Next Photo in Sequence)"]
+        NavNext["Switch selection to Photo 2 with native responsiveness"]
+        SampleB["Debounced background sampling extracts Photo 2's pixels"]
+        SolveB["Compute tailored solution for Photo 2's specific lighting<br/>using the SAME intent criteria chosen on Photo 1<br/>(e.g. solve Photo 2's specific Orange HSL & High-Key EV)"]
+        AutoApplyB["Automatically apply Photo 2's tailored solution to Photo 2"]
+    end
+
+    Choice --> ApplyA
+    ApplyA --> Nav
+    Nav --> PassIntent
+    PassIntent --> NavNext
+    NavNext --> SampleB
+    SampleB --> SolveB
+    SolveB --> AutoApplyB
+```
+
+* **Intent Preservation**: Your selected Complexion profile, Lock status (`🔒`), Tan, Mood, and Exposure tier (`Low`, `Mid`, or `High`) remain active.
+* **Photo-Specific Solving**: Photo 2 is evaluated individually. If Photo 2 was shot under slightly differing flash power or ambient bounce, SkinScope calculates the exact offsets required for Photo 2 to achieve the identical look post-grade.
+* **Rapid Navigation & Debounced Sampling**: Intermediate navigation clicks cancel in-flight background sampling passes with a 0.15s debounce window, ensuring zero queue backlog during rapid culling.
+* **Persistent Daemon**: A detached background Python sampler runs persistently in memory to eliminate cold-start runtime interpreter overhead.
 
 ---
 
