@@ -1,7 +1,7 @@
 # SkinScope for Lightroom Classic
 
-> **Objective Vectorscope Skin Tone Alignment & Luminance Balancing for Lightroom Classic**  
-> Engineered by **Jason Patel** for portrait photographers and retouchers with color vision deficiencies (protanopia, deuteranopia, tritanopia).
+> **Objective Vectorscope Skin Tone Calibration & Rapid Culling for Lightroom Classic**  
+> Engineered by **Jason Patel** to give portrait, wedding, and event photographers cinema-grade skin tone certainty in seconds—eliminating eye fatigue and empowering color vision deficient (CVD) retouchers with mathematical precision.
 
 ---
 
@@ -14,9 +14,11 @@
 ---
 
 ## 📸 Overview
-Judging skin tones by eye is prone to eye fatigue, room ambient casts, and color vision deficiencies. 
+Judging skin tones purely by eye is slow, subjective, and easily misled by eye fatigue, uncalibrated room lighting, and color vision discrepancies. 
 
-**SkinScope** ports the industry-standard **DaVinci Resolve Vectorscope Skin Tone Line (I-Line)** and **Alexis Van Hurkman's *Color Correction Handbook*** skin tone metrics directly into Adobe Lightroom Classic as a real-time, 344px floating HUD.
+In high-end film and television post-production (e.g. DaVinci Resolve), professional colorists don't guess skin tones—they rely on the **Vectorscope Skin Tone Indicator (I-Line)**.
+
+**SkinScope** ports this cinema-standard calibration methodology and **Alexis Van Hurkman's *Color Correction Handbook*** skin metrics directly into Adobe Lightroom Classic. Featuring a compact 344px floating HUD, persistent in-memory analysis, and **1-click intent-based filmstrip culling**, SkinScope delivers mathematically perfect, consistent skin tones across entire shoots in record time.
 
 ---
 

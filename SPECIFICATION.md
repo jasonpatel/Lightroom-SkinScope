@@ -2,7 +2,7 @@
 
 > **SkinScope** by Jason Patel  
 > An objective, vectorscope-driven skin tone calibration instrument for Adobe Lightroom Classic.  
-> Built for portrait photographers and color vision deficient (CVD) retouchers seeking mathematical certainty in skin color grading.
+> Engineered for portrait, wedding, and commercial photographers seeking speed and mathematical certainty in skin color grading, with breakthrough accessibility for color vision deficient (CVD) retouchers.
 
 ---
 
