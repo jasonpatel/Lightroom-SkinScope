@@ -1,6 +1,6 @@
 # SkinScope for Lightroom Classic
 
-> A Lightroom Classic plugin by **Jason Patel** that brings vectorscope skin tone grading and fast filmstrip culling into a simple floating HUD.
+> A Lightroom Classic plugin that brings vectorscope skin tone grading and fast filmstrip culling into a simple floating HUD.
 
 ---
 
@@ -12,7 +12,7 @@
 
 ---
 
-## 📸 Why I Built This
+## 📸 The Problem It Solves
 
 Judging skin tones by eye gets tiring fast. After an hour of editing, your eyes adapt to whatever tint is on the screen, and what looked right at 9 PM often looks greenish or overly magenta the next morning. If you have any color vision deficiency (like red-green weakness), it's even harder.
 
