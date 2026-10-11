@@ -392,6 +392,7 @@ function SkinScopeDialog.show(activeSettings)
         local currentSamplingSeq = 0
 
         -- Helper to read settings from a photo
+        -- Helper to read settings from a photo instantaneously without blocking on Develop side panel loading
         local function refreshFromActivePhoto(photo, appliedSettings)
             if not photo then return end
             propertyTable.prior_r = nil
@@ -404,64 +405,34 @@ function SkinScopeDialog.show(activeSettings)
             currentSamplingSeq = currentSamplingSeq + 1
             local thisSamplingSeq = currentSamplingSeq
 
-            -- Phase 1: INSTANT UI Update (Metadata, develop sliders, camera profile)
+            -- Phase 1: INSTANT Metadata & Settings from Database (0ms delay, no side panel lock)
             LrTasks.pcall(function()
                 local name = photo:getFormattedMetadata('fileName') or "Active Photo"
                 propertyTable.photo_name = name
 
-                local curTemp = nil
-                local curTint = nil
-                local curOrange = nil
-                local curExposure = nil
-                local curOrangeSat = nil
+                -- Read cached settings directly from database; instantaneous and does not wait for UI panels
+                local dev = photo:getDevelopSettings() or {}
+                local curTemp = dev.Temperature or 5500
+                local curTint = dev.Tint or 10
+                local curOrange = dev.HueAdjustmentOrange or 0
+                local curExposure = dev.Exposure2012 or dev.Exposure or 0
+                local curOrangeSat = dev.SaturationAdjustmentOrange or 0
 
                 if appliedSettings then
-                    curOrange = appliedSettings.hue
-                    curOrangeSat = appliedSettings.sat
-                    curExposure = appliedSettings.exp
+                    curOrange = appliedSettings.hue or curOrange
+                    curOrangeSat = appliedSettings.sat or curOrangeSat
+                    curExposure = appliedSettings.exp or curExposure
                 end
 
-                if LrApplicationView.getCurrentModuleName() == 'develop' then
-                    curTemp = LrDevelopController.getValue('Temperature')
-                    curTint = LrDevelopController.getValue('Tint')
-                    if not appliedSettings then
-                        curOrange = LrDevelopController.getValue('HueAdjustmentOrange')
-                        curExposure = LrDevelopController.getValue('Exposure2012') or LrDevelopController.getValue('Exposure')
-                        curOrangeSat = LrDevelopController.getValue('SaturationAdjustmentOrange')
-                    end
-                end
+                propertyTable.photo_baseline_temp = curTemp
+                propertyTable.photo_baseline_tint = curTint
+                propertyTable.current_temp = curTemp
+                propertyTable.current_tint = curTint
+                propertyTable.current_orange_hue = curOrange
+                propertyTable.current_exposure = curExposure
+                propertyTable.current_orange_sat = curOrangeSat
 
-                if not curTemp or not curTint then
-                    local dev = photo:getDevelopSettings() or {}
-                    curTemp = curTemp or dev.Temperature or 5500
-                    curTint = curTint or dev.Tint or 10
-                    if not appliedSettings then
-                        curOrange = curOrange or dev.HueAdjustmentOrange or 0
-                        curExposure = curExposure or dev.Exposure2012 or dev.Exposure or 0
-                        curOrangeSat = curOrangeSat or dev.SaturationAdjustmentOrange or 0
-                    end
-                end
-
-                curOrange = curOrange or 0
-                curExposure = curExposure or 0
-                curOrangeSat = curOrangeSat or 0
-
-                local flashFired = 0
-                LrTasks.pcall(function() flashFired = photo:getRawMetadata('flashFired') or 0 end)
-
-                propertyTable.photo_baseline_temp = curTemp or 5500
-                propertyTable.photo_baseline_tint = curTint or 8
-                propertyTable.current_temp = curTemp or 5500
-                propertyTable.current_tint = curTint or 8
-                propertyTable.current_orange_hue = curOrange or 0
-                propertyTable.current_exposure = curExposure or 0
-                propertyTable.current_orange_sat = curOrangeSat or 0
-
-                local profileName = "Adobe Color"
-                LrTasks.pcall(function()
-                    local d = photo:getDevelopSettings() or {}
-                    profileName = d.Profile or d.CameraProfile or "Adobe Color"
-                end)
+                local profileName = dev.Profile or dev.CameraProfile or "Adobe Color"
                 propertyTable.camera_profile = profileName
                 local prof_lower = profileName:lower()
                 if prof_lower:find("b&w") or prof_lower:find("monochrome") or prof_lower:find("black") then
@@ -534,11 +505,11 @@ function SkinScopeDialog.show(activeSettings)
                     pcall(function()
                         LrDevelopController.setValue('HueAdjustmentOrange', targetHue)
                     end)
-                    LrTasks.sleep(0.03)
+                    LrTasks.sleep(0.01)
                     pcall(function()
                         LrDevelopController.setValue('SaturationAdjustmentOrange', targetSat)
                     end)
-                    LrTasks.sleep(0.03)
+                    LrTasks.sleep(0.01)
                     pcall(function()
                         if LrDevelopController.getValue('Exposure2012') ~= nil then
                             LrDevelopController.setValue('Exposure2012', targetExp)
@@ -557,7 +528,8 @@ function SkinScopeDialog.show(activeSettings)
         -- Filmstrip navigation helper
         local isNavigating = false
         local cachedFilmstripPhotos = nil
-        local cachedFilmstripSourceId = nil
+        local cachedFilmstripTime = 0
+        local cachedCurrentIndex = nil
 
         local function getFilmstripPhotos(catalog)
             local targetPhotos = catalog:getTargetPhotos()
@@ -566,8 +538,12 @@ function SkinScopeDialog.show(activeSettings)
                 return targetPhotos
             end
 
-            -- 1. Lightroom's getMultipleSelectedOrAllPhotos() returns the EXACT active filmstrip,
-            -- strictly respecting any active Library/Develop Filter Bar (rating, flag, label, metadata filters)!
+            local now = os.time()
+            if cachedFilmstripPhotos and (now - cachedFilmstripTime) < 3 then
+                return cachedFilmstripPhotos
+            end
+
+            -- Query active filmstrip respecting filter bar
             local filteredFilmstrip = nil
             pcall(function()
                 if catalog.getMultipleSelectedOrAllPhotos then
@@ -575,31 +551,19 @@ function SkinScopeDialog.show(activeSettings)
                 end
             end)
             if filteredFilmstrip and #filteredFilmstrip > 0 then
-                return filteredFilmstrip
-            end
-
-            -- 2. Fallback to active sources (Folder or Collection) only if filmstrip query returned nothing
-            local sources = catalog:getActiveSources()
-            local sourceKey = ""
-            if sources and #sources > 0 then
-                for _, src in ipairs(sources) do
-                    if src and src.localIdentifier then
-                        sourceKey = sourceKey .. tostring(src.localIdentifier) .. ";"
-                    end
-                end
-            end
-
-            if cachedFilmstripPhotos and cachedFilmstripSourceId == sourceKey and #cachedFilmstripPhotos > 0 then
+                cachedFilmstripPhotos = filteredFilmstrip
+                cachedFilmstripTime = now
                 return cachedFilmstripPhotos
             end
 
+            local sources = catalog:getActiveSources()
             if sources and #sources > 0 then
                 for _, src in ipairs(sources) do
                     if src and src.getPhotos then
                         local srcPhotos = src:getPhotos()
                         if srcPhotos and #srcPhotos > 0 then
                             cachedFilmstripPhotos = srcPhotos
-                            cachedFilmstripSourceId = sourceKey
+                            cachedFilmstripTime = now
                             return cachedFilmstripPhotos
                         end
                     end
@@ -619,7 +583,10 @@ function SkinScopeDialog.show(activeSettings)
                 local success, err = LrTasks.pcall(function()
                     local catalog = LrApplication.activeCatalog()
                     local targetPhoto = catalog:getTargetPhoto()
-                    if not targetPhoto then return end
+                    if not targetPhoto then
+                        isNavigating = false
+                        return
+                    end
 
                     local oldId = targetPhoto.localIdentifier
 
@@ -634,28 +601,36 @@ function SkinScopeDialog.show(activeSettings)
                         end
                     end
 
-                    -- Discover adjacent photo across active selection, filmstrip, or collection
-                    local nextPhoto = nil
+                    -- Discover adjacent photo across active filmstrip
                     local allPhotos = getFilmstripPhotos(catalog)
+                    local nextPhoto = nil
 
                     if allPhotos and #allPhotos > 1 then
                         local currentIndex = nil
-                        for i, p in ipairs(allPhotos) do
-                            if p.localIdentifier == oldId then
-                                currentIndex = i
-                                break
+                        -- Fast check cached index first
+                        if cachedCurrentIndex and allPhotos[cachedCurrentIndex] and allPhotos[cachedCurrentIndex].localIdentifier == oldId then
+                            currentIndex = cachedCurrentIndex
+                        else
+                            for i, p in ipairs(allPhotos) do
+                                if p.localIdentifier == oldId then
+                                    currentIndex = i
+                                    break
+                                end
                             end
                         end
+
                         if currentIndex then
                             local nextIndex = currentIndex + delta
                             if nextIndex >= 1 and nextIndex <= #allPhotos then
                                 nextPhoto = allPhotos[nextIndex]
+                                cachedCurrentIndex = nextIndex
                             else
                                 LrDialogs.showBezel(delta > 0 and "At end of photo list." or "At start of photo list.")
+                                isNavigating = false
                                 return
                             end
                         else
-                            -- Current photo not in cached list (e.g. user jumped folders), invalidate and retry once
+                            -- Fallback: refresh cache once
                             cachedFilmstripPhotos = nil
                             allPhotos = getFilmstripPhotos(catalog)
                             if allPhotos then
@@ -664,6 +639,7 @@ function SkinScopeDialog.show(activeSettings)
                                         local nextIndex = i + delta
                                         if nextIndex >= 1 and nextIndex <= #allPhotos then
                                             nextPhoto = allPhotos[nextIndex]
+                                            cachedCurrentIndex = nextIndex
                                         end
                                         break
                                     end
@@ -674,10 +650,11 @@ function SkinScopeDialog.show(activeSettings)
 
                     if not nextPhoto then
                         LrDialogs.showBezel("No adjacent photo found.")
+                        isNavigating = false
                         return
                     end
 
-                    -- 1. Switch active selection to nextPhoto
+                    -- 1. Switch active selection to nextPhoto immediately
                     lastPhotoId = nextPhoto.localIdentifier
                     local targetPhotos = catalog:getTargetPhotos()
                     if targetPhotos and #targetPhotos > 1 then
@@ -686,23 +663,13 @@ function SkinScopeDialog.show(activeSettings)
                         catalog:setSelectedPhotos(nextPhoto, { nextPhoto })
                     end
 
-                    -- 2. Brief wait for Lightroom to switch active photo pointer
-                    for _ = 1, 6 do
-                        local cur = catalog:getTargetPhoto()
-                        if cur and cur.localIdentifier == nextPhoto.localIdentifier then
-                            break
-                        end
-                        LrTasks.sleep(0.03)
-                    end
-                    LrTasks.sleep(0.02)
-
-                    -- 3. Release navigation lock immediately so user can press Next/Prev again without latency
+                    -- 2. Release navigation lock IMMEDIATELY so the user can hit Next/Prev again instantly
                     isNavigating = false
 
-                    -- 4. Assess the next photo based on its own pixels and scene lighting
+                    -- 3. Update HUD immediately from database develop settings & metadata
                     refreshFromActivePhoto(nextPhoto)
 
-                    -- 5. If applying, solve & apply tailored settings for this specific photo
+                    -- 4. If applying, solve & apply tailored settings for this specific photo
                     if shouldApply and propertyTable.res then
                         local targetHue = propertyTable.res.suggested_hsl_orange_target or 0
                         local targetSat = propertyTable.res.suggested_orange_sat_target or 0
@@ -742,13 +709,15 @@ function SkinScopeDialog.show(activeSettings)
                     local currentTarget = catalog:getTargetPhoto()
                     if currentTarget then
                         local currentId = currentTarget.localIdentifier
+                        local isNewPhoto = (currentId ~= lastPhotoId)
                         local curTemp = nil
                         local curTint = nil
                         local curOrange = nil
                         local curExp = nil
                         local curSat = nil
 
-                        if LrApplicationView.getCurrentModuleName() == 'develop' then
+                        if not isNewPhoto and LrApplicationView.getCurrentModuleName() == 'develop' then
+                            -- Only query UI controllers when settled on the current photo (to detect live user slider moves)
                             curTemp = LrDevelopController.getValue('Temperature')
                             curTint = LrDevelopController.getValue('Tint')
                             curOrange = LrDevelopController.getValue('HueAdjustmentOrange')
