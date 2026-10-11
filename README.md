@@ -26,16 +26,18 @@ Judging skin tones by eye is prone to eye fatigue, room ambient casts, and color
 * **Alexis Van Hurkman Standards**: 8 plain-English complexion profiles (Porcelain, Fair, East Asian, Olive, Brown Light, Brown Medium, Brown Deep, Deep Melanin) with calibrated Luma and Saturation targets.
 * **Exposure-Invariant Saturation**: Proprietary luma-normalized saturation formula eliminates false oversaturation warnings when adjusting exposure.
 * **3-Way Exposure Snapping**: Dedicated Low, Mid, and High target buttons calculate exact logarithmic $\Delta\text{EV}$ photographic exposure shifts in one click.
-* **⚡ Live Auto-Apply Sync**: Toggle live mode to automatically update Lightroom's Develop sliders in real time as you browse skin profiles and sun tans.
+* **⚡ Intent-Based Filmstrip Culling (`⚡ Apply & Next ▶`)**: Carries forward your chosen grading intent (complexion profile, look, tan, and high/mid/low exposure tier) and automatically calculates and applies tailored corrections for each photo in the sequence.
+* **⚡ Native Filmstrip Responsiveness**: Instantaneous photo switching, persistent background sampling daemon, and debounced pixel analysis for zero lag during rapid culling.
+* **🔒 Complexion Lock**: Protects your chosen skin tone target from accidental mouse wheel or trackpad scrolling in Windows.
 * **Seamless Split Swatch**: Borderless 344px Before/After swatch dynamically rendered in pure Lua.
-* **Direct RAW Sampling**: Analyzes 2,000–5,000 raw skin pixels directly from camera preview metadata in $< 300\text{ms}$.
+* **Direct RAW Sampling**: Analyzes 2,000–5,000 skin pixels from camera previews in $< 200\text{ms}$.
 
 ---
 
 ## 📥 Download & Installation
 
 ### 1. Download the Plugin
-* 👉 [**Download Latest Release (SkinScope-v1.0.zip)**](https://github.com/jasonpatel/Lightroom-SkinScope/releases/latest)
+* 👉 [**Download Latest Release (SkinScope-v2.0.0.zip)**](https://github.com/jasonpatel/Lightroom-SkinScope/releases/latest)
 * Extract the `.zip` archive on your computer. You will find a folder named **`SkinScope.lrplugin`**.  
   *(Recommended: Keep this folder in a permanent location like `Documents/Lightroom Plugins/`)*.
 
