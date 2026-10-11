@@ -9,6 +9,8 @@ local LrTasks = import 'LrTasks'
 local LrPathUtils = import 'LrPathUtils'
 local LrPrefs = import 'LrPrefs'
 
+local WIN_ENV = (LrPathUtils.directorySeparator() == '\\')
+
 local SkinSampler = {}
 
 --- Request a rendered JPEG thumbnail from Lightroom's preview cache.

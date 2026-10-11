@@ -450,9 +450,15 @@ function SkinScopeDialog.show(activeSettings)
                 updateDiagnostics()
             end)
 
-            -- Phase 2: ASYNC Background Pixel Sampling (Doesn't block UI / Next / Prev)
+            -- Phase 2: ASYNC Background Pixel Sampling (Debounced, doesn't block UI / Next / Prev)
             propertyTable.sample_info_str = "Analyzing skin pixels..."
             LrTasks.startAsyncTask(function()
+                -- Debounce: give the user 0.15s to finish rapid Next/Prev clicks
+                LrTasks.sleep(0.15)
+                if thisSamplingSeq ~= currentSamplingSeq then
+                    return
+                end
+
                 local samplerPath = LrPathUtils.child(_PLUGIN.path, 'SkinSampler.lua')
                 local SkinSampler = dofile(samplerPath)
                 local samples = SkinSampler.samplePhoto(photo)
